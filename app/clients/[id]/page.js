@@ -20,12 +20,23 @@ const TYPE_LABEL = {
   other:            'Other',
 }
 
+const TAG_COLORS = {
+  vip: { bg: '#fef3c7', color: '#d97706' },
+  urgent: { bg: '#fecaca', color: '#dc2626' },
+  followup: { bg: '#bfdbfe', color: '#1d4ed8' },
+  contract: { bg: '#d1d5db', color: '#374151' },
+  default: { bg: '#f3f4f6', color: '#6b7280' },
+}
+
 export default function ClientDetailPage() {
   const router = useRouter()
   const { id } = useParams()
   const [client, setClient] = useState(null)
   const [sites, setSites] = useState([])
   const [contacts, setContacts] = useState([])
+  const [activityLogs, setActivityLogs] = useState([])
+  const [notes, setNotes] = useState([])
+  const [tags, setTags] = useState([])
   const [accessToken, setAccessToken] = useState('')
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState('')
@@ -51,6 +62,18 @@ export default function ClientDetailPage() {
   const [savingContact, setSavingContact] = useState(false)
   const [deleteContactId, setDeleteContactId] = useState(null)
 
+  // Notes form state
+  const [showNoteForm, setShowNoteForm] = useState(false)
+  const [editNote, setEditNote] = useState(null)
+  const [noteContent, setNoteContent] = useState('')
+  const [savingNote, setSavingNote] = useState(false)
+  const [deleteNoteId, setDeleteNoteId] = useState(null)
+
+  // Tags form state
+  const [showTagForm, setShowTagForm] = useState(false)
+  const [newTag, setNewTag] = useState('')
+  const [savingTag, setSavingTag] = useState(false)
+
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 3000) }
 
   useEffect(() => {
@@ -62,16 +85,22 @@ export default function ClientDetailPage() {
   }, [id])
 
   async function loadAll(token) {
-    const [cRes, sRes, ctRes] = await Promise.all([
+    const [cRes, sRes, ctRes, alRes, nRes, tRes] = await Promise.all([
       fetch('/api/clients', { headers: { authorization: `Bearer ${token}` } }),
       fetch(`/api/client-sites?client_id=${id}`, { headers: { authorization: `Bearer ${token}` } }),
       fetch(`/api/client-contacts?client_id=${id}`, { headers: { authorization: `Bearer ${token}` } }),
+      fetch(`/api/activity-log?client_id=${id}`, { headers: { authorization: `Bearer ${token}` } }),
+      fetch(`/api/client-notes?client_id=${id}`, { headers: { authorization: `Bearer ${token}` } }),
+      fetch(`/api/client-tags?client_id=${id}`, { headers: { authorization: `Bearer ${token}` } }),
     ])
     const clients = await cRes.json()
     const found = (Array.isArray(clients) ? clients : []).find(c => c.id === id)
     if (!found) { router.push('/clients'); return }
     setSites(await sRes.json().catch(() => []))
     setContacts(await ctRes.json().catch(() => []))
+    setActivityLogs(await alRes.json().catch(() => []))
+    setNotes(await nRes.json().catch(() => []))
+    setTags(await tRes.json().catch(() => []))
     setClient(found)
     setLoading(false)
   }
@@ -117,6 +146,43 @@ export default function ClientDetailPage() {
     setDeleteContactId(null); loadAll(accessToken); showToast('Contact removed.')
   }
 
+  // Notes
+  function openNoteForm(note = null) {
+    setEditNote(note); setNoteContent(note?.content || ''); setShowNoteForm(true)
+  }
+  async function saveNote(e) {
+    e.preventDefault(); if (!noteContent.trim()) return; setSavingNote(true)
+    const res = await fetch('/api/client-notes', {
+      method: editNote ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json', authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify(editNote ? { id: editNote.id, content: noteContent } : { client_id: id, content: noteContent }),
+    })
+    setSavingNote(false)
+    if (res.ok) { setShowNoteForm(false); showToast(editNote ? 'Note updated.' : 'Note added.'); loadAll(accessToken) }
+    else { const d = await res.json(); showToast(d.error || 'Error.') }
+  }
+  async function deleteNote() {
+    await fetch(`/api/client-notes?id=${deleteNoteId}`, { method: 'DELETE', headers: { authorization: `Bearer ${accessToken}` } })
+    setDeleteNoteId(null); loadAll(accessToken); showToast('Note removed.')
+  }
+
+  // Tags
+  async function saveTag(e) {
+    e.preventDefault(); if (!newTag.trim()) return; setSavingTag(true)
+    const res = await fetch('/api/client-tags', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({ client_id: id, tag: newTag }),
+    })
+    setSavingTag(false)
+    if (res.ok) { setNewTag(''); setShowTagForm(false); showToast('Tag added.'); loadAll(accessToken) }
+    else { const d = await res.json(); showToast(d.error || 'Error.') }
+  }
+  async function removeTag(tag) {
+    await fetch(`/api/client-tags?client_id=${id}&tag=${encodeURIComponent(tag)}`, { method: 'DELETE', headers: { authorization: `Bearer ${accessToken}` } })
+    loadAll(accessToken); showToast('Tag removed.')
+  }
+
   if (loading) return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: '14px' }}>Loading…</div>
 
   const badge = STATUS_BADGE[client.status] || STATUS_BADGE.active
@@ -151,11 +217,11 @@ export default function ClientDetailPage() {
           </div>
 
           {/* Tabs */}
-          <div style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', padding: '0 32px', display: 'flex', gap: '0' }}>
-            {[['overview', 'Overview'], ['contacts', `Contacts (${contacts.length})`], ['sites', `Sites (${sites.length})`]].map(([key, label]) => (
+          <div style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', padding: '0 32px', display: 'flex', gap: '0', overflowX: 'auto' }}>
+            {[['overview', 'Overview'], ['contacts', `Contacts (${contacts.length})`], ['sites', `Sites (${sites.length})`], ['notes', `Notes (${notes.length})`], ['tags', `Tags (${tags.length})`], ['activity', 'Activity']].map(([key, label]) => (
               <button key={key} onClick={() => setActiveTab(key)} style={{
                 padding: '12px 20px', background: 'none', border: 'none', borderBottom: activeTab === key ? '2px solid #1d4ed8' : '2px solid transparent',
-                color: activeTab === key ? '#1d4ed8' : '#64748b', fontSize: '13px', fontWeight: activeTab === key ? 600 : 400, cursor: 'pointer', marginBottom: '-1px',
+                color: activeTab === key ? '#1d4ed8' : '#64748b', fontSize: '13px', fontWeight: activeTab === key ? 600 : 400, cursor: 'pointer', marginBottom: '-1px', whiteSpace: 'nowrap',
               }}>{label}</button>
             ))}
           </div>
@@ -250,6 +316,87 @@ export default function ClientDetailPage() {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {/* Notes Tab */}
+              {activeTab === 'notes' && (
+                <div style={{ background: '#fff', borderRadius: '10px', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.07)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                    <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>Internal Notes ({notes.length})</h3>
+                    <button onClick={() => openNoteForm()}
+                      style={{ padding: '6px 14px', background: '#1d4ed8', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
+                      + Add Note
+                    </button>
+                  </div>
+                  {notes.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '24px', color: '#94a3b8', fontSize: '13px' }}>No notes yet. Add internal notes about this client.</div>
+                  ) : notes.map(n => (
+                    <div key={n.id} style={{ padding: '16px', background: '#f8fafc', borderRadius: '8px', marginBottom: '12px', borderLeft: '3px solid #2563eb' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                        <div style={{ fontSize: '12px', color: '#94a3b8' }}>
+                          {new Date(n.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </div>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button onClick={() => openNoteForm(n)} style={{ padding: '2px 8px', background: '#dbeafe', border: 'none', borderRadius: '4px', fontSize: '11px', color: '#1d4ed8', cursor: 'pointer' }}>Edit</button>
+                          <button onClick={() => setDeleteNoteId(n.id)} style={{ padding: '2px 8px', background: '#fecaca', border: 'none', borderRadius: '4px', fontSize: '11px', color: '#dc2626', cursor: 'pointer' }}>Delete</button>
+                        </div>
+                      </div>
+                      <div style={{ fontSize: '13px', color: '#0f172a', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{n.content}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Tags Tab */}
+              {activeTab === 'tags' && (
+                <div style={{ background: '#fff', borderRadius: '10px', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.07)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                    <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>Tags</h3>
+                    <button onClick={() => setShowTagForm(true)}
+                      style={{ padding: '6px 14px', background: '#1d4ed8', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
+                      + Add Tag
+                    </button>
+                  </div>
+                  {tags.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '24px', color: '#94a3b8', fontSize: '13px' }}>No tags yet. Tag this client for quick organization.</div>
+                  ) : (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                      {tags.map(t => {
+                        const color = TAG_COLORS[t] || TAG_COLORS.default
+                        return (
+                          <div key={t} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '99px', background: color.bg, color: color.color, fontSize: '13px', fontWeight: 600 }}>
+                            {t}
+                            <button onClick={() => removeTag(t)} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: '16px', padding: '0 0 2px 0' }}>×</button>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Activity Log Tab */}
+              {activeTab === 'activity' && (
+                <div style={{ background: '#fff', borderRadius: '10px', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.07)' }}>
+                  <h3 style={{ margin: '0 0 20px', fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>Activity Log</h3>
+                  {activityLogs.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '24px', color: '#94a3b8', fontSize: '13px' }}>No activity yet.</div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {activityLogs.map((log, idx) => (
+                        <div key={idx} style={{ padding: '12px 16px', background: '#f8fafc', borderRadius: '8px', borderLeft: '3px solid #64748b' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
+                            <div style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>{log.action}</div>
+                            <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+                              {new Date(log.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </div>
+                          </div>
+                          {log.details && <div style={{ fontSize: '12px', color: '#64748b' }}>{log.details}</div>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -350,6 +497,62 @@ export default function ClientDetailPage() {
               <button onClick={() => setDeleteSiteId(null)} style={{ flex: 1, padding: '10px', background: '#f1f5f9', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px' }}>Cancel</button>
               <button onClick={deleteSite} style={{ flex: 1, padding: '10px', background: '#dc2626', border: 'none', borderRadius: '8px', color: '#fff', cursor: 'pointer', fontSize: '14px', fontWeight: 600 }}>Remove</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Note Form Modal */}
+      {showNoteForm && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+          <div style={{ background: '#fff', borderRadius: '12px', padding: '28px', width: '480px' }}>
+            <h3 style={{ margin: '0 0 20px', fontSize: '16px', fontWeight: 700, color: '#0f172a' }}>{editNote ? 'Edit Note' : 'Add Note'}</h3>
+            <form onSubmit={saveNote}>
+              <div style={{ marginBottom: '20px' }}>
+                <label style={labelStyle}>Note Content *</label>
+                <textarea value={noteContent} onChange={e => setNoteContent(e.target.value)} required placeholder="Add your internal notes here..." rows={6} style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit' }} />
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button type="button" onClick={() => setShowNoteForm(false)} style={{ flex: 1, padding: '10px', background: '#f1f5f9', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px' }}>Cancel</button>
+                <button type="submit" disabled={savingNote} style={{ flex: 1, padding: '10px', background: '#1d4ed8', border: 'none', borderRadius: '8px', color: '#fff', cursor: 'pointer', fontSize: '14px', fontWeight: 600, opacity: savingNote ? 0.7 : 1 }}>
+                  {savingNote ? 'Saving…' : editNote ? 'Save Changes' : 'Add Note'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Note Confirm */}
+      {deleteNoteId && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+          <div style={{ background: '#fff', borderRadius: '12px', padding: '28px', width: '360px' }}>
+            <h3 style={{ margin: '0 0 8px', fontSize: '16px', fontWeight: 700 }}>Delete Note?</h3>
+            <p style={{ margin: '0 0 20px', fontSize: '14px', color: '#64748b' }}>This note will be permanently removed.</p>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={() => setDeleteNoteId(null)} style={{ flex: 1, padding: '10px', background: '#f1f5f9', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px' }}>Cancel</button>
+              <button onClick={deleteNote} style={{ flex: 1, padding: '10px', background: '#dc2626', border: 'none', borderRadius: '8px', color: '#fff', cursor: 'pointer', fontSize: '14px', fontWeight: 600 }}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tag Form Modal */}
+      {showTagForm && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+          <div style={{ background: '#fff', borderRadius: '12px', padding: '28px', width: '400px' }}>
+            <h3 style={{ margin: '0 0 20px', fontSize: '16px', fontWeight: 700, color: '#0f172a' }}>Add Tag</h3>
+            <form onSubmit={saveTag}>
+              <div style={{ marginBottom: '20px' }}>
+                <label style={labelStyle}>Tag Name *</label>
+                <input value={newTag} onChange={e => setNewTag(e.target.value)} required placeholder="e.g., VIP, Urgent, Follow-up…" style={inputStyle} />
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button type="button" onClick={() => setShowTagForm(false)} style={{ flex: 1, padding: '10px', background: '#f1f5f9', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px' }}>Cancel</button>
+                <button type="submit" disabled={savingTag} style={{ flex: 1, padding: '10px', background: '#1d4ed8', border: 'none', borderRadius: '8px', color: '#fff', cursor: 'pointer', fontSize: '14px', fontWeight: 600, opacity: savingTag ? 0.7 : 1 }}>
+                  {savingTag ? 'Adding…' : 'Add Tag'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
