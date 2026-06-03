@@ -12,9 +12,15 @@ const MODULES = [
   { href: '/invoices', label: 'Invoices', icon: '💵', desc: 'Billing and invoice management',            color: '#fdf4ff', border: '#e9d5ff', iconBg: '#7c3aed', soon: true },
 ]
 
-function StatCard({ label, value, sub, color }) {
+const STATUS_LABEL = {
+  active: { label: 'Active', color: '#15803d' },
+  prospect: { label: 'Prospect', color: '#a16207' },
+  inactive: { label: 'Inactive', color: '#64748b' },
+}
+
+function StatCard({ label, value, sub, color, onClick }) {
   return (
-    <div style={{ background: '#fff', borderRadius: '10px', padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.07)', borderLeft: `4px solid ${color}` }}>
+    <div onClick={onClick} style={{ background: '#fff', borderRadius: '10px', padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.07)', borderLeft: `4px solid ${color}`, cursor: 'pointer', transition: 'all 0.2s', transform: 'translateY(0)' }} onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-4px)'} onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
       <div style={{ fontSize: '28px', fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>{value ?? '—'}</div>
       <div style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginTop: '6px' }}>{label}</div>
       {sub && <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>{sub}</div>}
@@ -45,6 +51,9 @@ export default function DashboardPage() {
   const router = useRouter()
   const [userName, setUserName] = useState('')
   const [stats, setStats] = useState(null)
+  const [clients, setClients] = useState([])
+  const [sites, setSites] = useState([])
+  const [modalType, setModalType] = useState(null)
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -56,15 +65,18 @@ export default function DashboardPage() {
         fetch('/api/clients', { headers: { authorization: `Bearer ${token}` } }),
         fetch('/api/client-sites', { headers: { authorization: `Bearer ${token}` } }),
       ])
-      const clients = await clientsRes.json().catch(() => [])
-      const sites = await sitesRes.json().catch(() => [])
+      const clientsData = await clientsRes.json().catch(() => [])
+      const sitesData = await sitesRes.json().catch(() => [])
 
-      const all = Array.isArray(clients) ? clients : []
+      const all = Array.isArray(clientsData) ? clientsData : []
+      setClients(all)
+      setSites(Array.isArray(sitesData) ? sitesData : [])
+
       setStats({
         total: all.length,
         active: all.filter(c => (c.status || 'active') === 'active').length,
         prospects: all.filter(c => c.status === 'prospect').length,
-        sites: Array.isArray(sites) ? sites.length : 0,
+        sites: Array.isArray(sitesData) ? sitesData.length : 0,
       })
     })
   }, [])
@@ -94,10 +106,10 @@ export default function DashboardPage() {
 
           {/* Stats Row */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '28px' }}>
-            <StatCard label="Total Clients" value={stats?.total} sub="All client accounts" color="#2563eb" />
-            <StatCard label="Active Clients" value={stats?.active} sub="Currently active" color="#16a34a" />
-            <StatCard label="Prospects" value={stats?.prospects} sub="In pipeline" color="#d97706" />
-            <StatCard label="Service Sites" value={stats?.sites} sub="Across all clients" color="#7c3aed" />
+            <StatCard label="Total Clients" value={stats?.total} sub="All client accounts" color="#2563eb" onClick={() => setModalType('all')} />
+            <StatCard label="Active Clients" value={stats?.active} sub="Currently active" color="#16a34a" onClick={() => setModalType('active')} />
+            <StatCard label="Prospects" value={stats?.prospects} sub="In pipeline" color="#d97706" onClick={() => setModalType('prospect')} />
+            <StatCard label="Service Sites" value={stats?.sites} sub="Across all clients" color="#7c3aed" onClick={() => setModalType('sites')} />
           </div>
 
           {/* Module Cards */}
@@ -108,6 +120,65 @@ export default function DashboardPage() {
 
         </div>
       </div>
+
+      {modalType && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }} onClick={() => setModalType(null)}>
+          <div style={{ background: '#fff', borderRadius: '12px', maxWidth: '600px', width: '90%', maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 20px 25px rgba(0,0,0,0.15)', padding: '28px' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: '#0f172a' }}>
+                {modalType === 'all' && 'All Clients'}
+                {modalType === 'active' && 'Active Clients'}
+                {modalType === 'prospect' && 'Prospects'}
+                {modalType === 'sites' && 'Service Sites'}
+              </h2>
+              <button onClick={() => setModalType(null)} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: '24px' }}>×</button>
+            </div>
+
+            {modalType === 'sites' ? (
+              <div>
+                {sites.length === 0 ? (
+                  <div style={{ padding: '32px', textAlign: 'center', color: '#94a3b8' }}>No service sites yet.</div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {sites.map(site => (
+                      <div key={site.id} style={{ padding: '14px', background: '#f8fafc', borderRadius: '8px', borderLeft: '3px solid #7c3aed' }}>
+                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>{site.name}</div>
+                        {site.address && <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>📍 {site.address}</div>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div>
+                {(modalType === 'all' ? clients : clients.filter(c => (modalType === 'active' ? (c.status || 'active') === 'active' : c.status === modalType))).length === 0 ? (
+                  <div style={{ padding: '32px', textAlign: 'center', color: '#94a3b8' }}>No clients to display.</div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {(modalType === 'all' ? clients : clients.filter(c => (modalType === 'active' ? (c.status || 'active') === 'active' : c.status === modalType))).map(client => {
+                      const status = client.status || 'active'
+                      const statusInfo = STATUS_LABEL[status] || { label: 'Unknown', color: '#64748b' }
+                      return (
+                        <div key={client.id} style={{ padding: '14px', background: '#f8fafc', borderRadius: '8px', borderLeft: '3px solid #2563eb' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                            <div style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>{client.company_name}</div>
+                            <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '99px', background: '#fff', color: statusInfo.color }}>
+                              {statusInfo.label}
+                            </span>
+                          </div>
+                          {client.contact_name && <div style={{ fontSize: '12px', color: '#374151', marginBottom: '4px' }}>👤 {client.contact_name}</div>}
+                          {client.contact_email && <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px' }}>📧 {client.contact_email}</div>}
+                          {client.address && <div style={{ fontSize: '11px', color: '#64748b' }}>📍 {client.address}</div>}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
