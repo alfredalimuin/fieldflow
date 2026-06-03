@@ -1,0 +1,331 @@
+'use client'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { supabase } from '../../lib/supabase'
+import Sidebar from '../components/Sidebar'
+import Topbar from '../components/Topbar'
+
+const STATUS_BADGE = {
+  draft:    { bg: '#f1f5f9', color: '#475569', label: 'Draft' },
+  sent:     { bg: '#eff6ff', color: '#1d4ed8', label: 'Sent' },
+  viewed:   { bg: '#fefce8', color: '#a16207', label: 'Viewed' },
+  accepted: { bg: '#f0fdf4', color: '#15803d', label: 'Accepted' },
+  declined: { bg: '#fef2f2', color: '#dc2626', label: 'Declined' },
+}
+
+const FILTER_TABS = ['All', 'Draft', 'Sent', 'Viewed', 'Accepted', 'Declined']
+
+export default function QuotesPage() {
+  const router = useRouter()
+  const [quotes, setQuotes] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [filterTab, setFilterTab] = useState('All')
+  const [accessToken, setAccessToken] = useState('')
+  const [deleteId, setDeleteId] = useState(null)
+  const [toast, setToast] = useState('')
+  const [previewQuote, setPreviewQuote] = useState(null)
+
+  useEffect(() => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!session) { router.push('/login'); return }
+      setAccessToken(session.access_token)
+      loadQuotes(session.access_token)
+    })
+  }, [])
+
+  async function loadQuotes(token) {
+    const res = await fetch('/api/quotes', { headers: { authorization: `Bearer ${token}` } })
+    const data = await res.json()
+    setQuotes(Array.isArray(data) ? data : [])
+    setLoading(false)
+  }
+
+  function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 3000) }
+
+  function copyLink(token) {
+    navigator.clipboard.writeText(`${window.location.origin}/q/${token}`)
+    showToast('Link copied!')
+  }
+
+  async function confirmDelete() {
+    await fetch(`/api/quotes?id=${deleteId}`, { method: 'DELETE', headers: { authorization: `Bearer ${accessToken}` } })
+    setDeleteId(null); loadQuotes(accessToken); showToast('Quote deleted.')
+  }
+
+  const filtered = quotes
+    .filter(q => filterTab === 'All' || q.status === filterTab.toLowerCase())
+    .filter(q =>
+      (q.title || '').toLowerCase().includes(search.toLowerCase()) ||
+      (q.client_name || '').toLowerCase().includes(search.toLowerCase()) ||
+      (q.service_type || '').toLowerCase().includes(search.toLowerCase()) ||
+      `Q-${String(q.quote_number || 0).padStart(4, '0')}`.toLowerCase().includes(search.toLowerCase())
+    )
+
+  return (
+    <div style={{ display: 'flex', minHeight: '100vh' }}>
+      <Sidebar />
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+        <Topbar title="Quotes" actions={
+          <button onClick={() => router.push('/quotes/new')}
+            style={{ padding: '8px 16px', background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}>
+            + New Quote
+          </button>
+        } />
+        <div style={{ flex: 1, padding: '28px 32px', overflowY: 'auto' }}>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
+            <input value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="Search by Q#, client, title, or service…"
+              style={{ padding: '10px 14px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', width: '350px', outline: 'none' }} />
+            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+              {FILTER_TABS.map(t => (
+                <button key={t} onClick={() => setFilterTab(t)} style={{
+                  padding: '7px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: filterTab === t ? 600 : 400,
+                  background: filterTab === t ? '#1d4ed8' : '#f1f5f9',
+                  color: filterTab === t ? '#fff' : '#64748b', border: 'none', cursor: 'pointer',
+                }}>{t}</button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 1px 3px rgba(0,0,0,0.07)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 160px 130px 100px 100px 200px', padding: '12px 20px', borderBottom: '1px solid #f1f5f9' }}>
+              {['Quote', 'Client', 'Service', 'Total', 'Status', 'Actions'].map(h => (
+                <div key={h} style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{h}</div>
+              ))}
+            </div>
+
+            {loading ? (
+              <div style={{ padding: '32px', textAlign: 'center', color: '#94a3b8', fontSize: '14px' }}>Loading…</div>
+            ) : filtered.length === 0 ? (
+              <div style={{ padding: '32px', textAlign: 'center', color: '#94a3b8', fontSize: '14px' }}>
+                {search || filterTab !== 'All' ? 'No quotes match your search.' : 'No quotes yet. Create your first one.'}
+              </div>
+            ) : filtered.map(q => {
+              const badge = STATUS_BADGE[q.status] || STATUS_BADGE.draft
+              return (
+                <div key={q.id} style={{ display: 'grid', gridTemplateColumns: '1fr 160px 130px 100px 100px 200px', alignItems: 'center', padding: '14px 20px', borderBottom: '1px solid #f8fafc', gap: '8px' }}>
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>
+                      <span style={{ color: '#1d4ed8', fontWeight: 700 }}>Q-{String(q.quote_number || 0).padStart(4, '0')}</span> {q.title || 'Untitled Quote'}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>
+                      {new Date(q.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '13px', color: '#374151' }}>{q.client_name || '—'}</div>
+                  <div style={{ fontSize: '12px', color: '#64748b' }}>{q.service_type || '—'}</div>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>${(q.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+                  <span style={{ padding: '3px 10px', borderRadius: '99px', fontSize: '11px', fontWeight: 600, background: badge.bg, color: badge.color, display: 'inline-block' }}>
+                    {badge.label}
+                  </span>
+                  <div style={{ display: 'flex', gap: '5px' }}>
+                    <button onClick={() => setPreviewQuote(q)}
+                      style={{ padding: '4px 9px', background: '#eff6ff', border: 'none', borderRadius: '6px', fontSize: '11px', color: '#1d4ed8', fontWeight: 600, cursor: 'pointer' }}>View</button>
+                    <button onClick={() => router.push(`/quotes/new?id=${q.id}`)}
+                      style={{ padding: '4px 9px', background: '#f8fafc', border: 'none', borderRadius: '6px', fontSize: '11px', color: '#475569', cursor: 'pointer' }}>Edit</button>
+                    <button onClick={() => copyLink(q.token)}
+                      style={{ padding: '4px 9px', background: '#fef2f2', border: 'none', borderRadius: '6px', fontSize: '11px', color: '#dc2626', cursor: 'pointer' }}>Del</button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          <div style={{ marginTop: '12px', fontSize: '12px', color: '#94a3b8' }}>{filtered.length} of {quotes.length} quote{quotes.length !== 1 ? 's' : ''}</div>
+        </div>
+      </div>
+
+      {deleteId && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+          <div style={{ background: '#fff', borderRadius: '12px', padding: '28px', width: '360px' }}>
+            <h3 style={{ margin: '0 0 8px', fontSize: '16px', fontWeight: 700, color: '#0f172a' }}>Delete Quote?</h3>
+            <p style={{ margin: '0 0 20px', fontSize: '14px', color: '#64748b' }}>This will permanently remove the quote.</p>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={() => setDeleteId(null)} style={{ flex: 1, padding: '10px', background: '#f1f5f9', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px' }}>Cancel</button>
+              <button onClick={confirmDelete} style={{ flex: 1, padding: '10px', background: '#dc2626', border: 'none', borderRadius: '8px', color: '#fff', cursor: 'pointer', fontSize: '14px', fontWeight: 600 }}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {toast && (
+        <div style={{ position: 'fixed', bottom: '24px', right: '24px', background: '#0f172a', color: '#fff', padding: '12px 20px', borderRadius: '8px', fontSize: '14px', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', zIndex: 100 }}>
+          {toast}
+        </div>
+      )}
+
+      {previewQuote && <QuotePreviewModal quote={previewQuote} onClose={() => setPreviewQuote(null)} />}
+    </div>
+  )
+}
+
+function QuotePreviewModal({ quote, onClose }) {
+  function getSubtotal(items) {
+    return (items || []).reduce((s, it) => s + (Number(it.qty) || 0) * (Number(it.unit_price) || 0), 0)
+  }
+
+  function getDiscountAmount(subtotal) {
+    return quote.discount_type === 'percentage'
+      ? subtotal * (Number(quote.discount_value) || 0) / 100
+      : Number(quote.discount_value) || 0
+  }
+
+  function getTaxAmount(subtotal) {
+    const taxable = Math.max(0, subtotal - getDiscountAmount(subtotal))
+    return taxable * (Number(quote.tax_rate) || 0) / 100
+  }
+
+  function getTotal(subtotal) {
+    const taxable = Math.max(0, subtotal - getDiscountAmount(subtotal))
+    return taxable + getTaxAmount(subtotal)
+  }
+
+  const hasPackages = quote.packages && quote.packages.length > 0
+  const items = hasPackages ? quote.packages[0].items : quote.items
+  const subtotal = getSubtotal(items)
+  const discount = getDiscountAmount(subtotal)
+  const tax = getTaxAmount(subtotal)
+  const total = getTotal(subtotal)
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '16px' }} onClick={onClose}>
+      <div style={{ background: '#fff', borderRadius: '0px', width: '95%', maxWidth: '900px', maxHeight: '95vh', overflowY: 'auto', boxShadow: '0 25px 50px rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+
+        {/* Close Button - Floating */}
+        <button onClick={onClose} style={{ position: 'absolute', top: '16px', right: '16px', background: '#fff', border: '1px solid #e2e8f0', color: '#0f172a', cursor: 'pointer', width: '40px', height: '40px', borderRadius: '50%', fontSize: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60, boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>×</button>
+
+        {/* Document Body - Like printed page */}
+        <div style={{ flex: 1, padding: '48px', background: '#fff', overflowY: 'auto', fontFamily: 'system-ui' }}>
+
+          {/* Header */}
+          <div style={{ marginBottom: '32px', borderBottom: '2px solid #1d4ed8', paddingBottom: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+              <div>
+                <div style={{ fontSize: '28px', fontWeight: 800, color: '#0f172a' }}>
+                  Field<span style={{ color: '#2563eb' }}>Flow</span>
+                </div>
+                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>LVJR Service Solutions Inc.</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: '13px', color: '#64748b', fontWeight: 600, marginBottom: '8px' }}>Quote #</div>
+                <div style={{ fontSize: '32px', fontWeight: 800, color: '#1d4ed8', letterSpacing: '-1px' }}>
+                  Q-{String(quote.quote_number || 0).padStart(4, '0')}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Quote Details */}
+          <div style={{ marginBottom: '32px' }}>
+            <h1 style={{ margin: '0 0 12px', fontSize: '26px', fontWeight: 800, color: '#0f172a' }}>
+              {quote.title || 'Service Quote'}
+            </h1>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+              <div>
+                <div style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>Prepared For</div>
+                <div style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a' }}>{quote.client_name}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>Date</div>
+                <div style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a' }}>
+                  {new Date(quote.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                </div>
+              </div>
+            </div>
+            {quote.site_name && (
+              <div>
+                <div style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>Location</div>
+                <div style={{ fontSize: '14px', color: '#0f172a' }}>📍 {quote.site_name}</div>
+              </div>
+            )}
+          </div>
+
+          {/* Quote Info Grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '32px', padding: '16px', background: '#f8fafc', borderRadius: '8px' }}>
+            <div>
+              <div style={{ fontSize: '10px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '6px' }}>Service Type</div>
+              <div style={{ fontSize: '14px', fontWeight: 600, color: '#0f172a' }}>{quote.service_type || '—'}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: '10px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '6px' }}>Status</div>
+              <div style={{ fontSize: '14px', fontWeight: 600, color: '#0f172a' }}>{quote.status?.charAt(0).toUpperCase() + quote.status?.slice(1)}</div>
+            </div>
+            {quote.expires_at && (
+              <div>
+                <div style={{ fontSize: '10px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '6px' }}>Valid Until</div>
+                <div style={{ fontSize: '14px', fontWeight: 600, color: '#0f172a' }}>
+                  {new Date(quote.expires_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Line Items */}
+          <div style={{ marginBottom: '32px' }}>
+            <h2 style={{ margin: '0 0 16px', fontSize: '14px', fontWeight: 700, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Line Items</h2>
+            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '16px' }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid #1d4ed8' }}>
+                  <th style={{ textAlign: 'left', padding: '12px 0', fontSize: '11px', fontWeight: 700, color: '#0f172a', textTransform: 'uppercase' }}>Description</th>
+                  <th style={{ textAlign: 'center', padding: '12px 0', fontSize: '11px', fontWeight: 700, color: '#0f172a', textTransform: 'uppercase' }}>Qty</th>
+                  <th style={{ textAlign: 'right', padding: '12px 0', fontSize: '11px', fontWeight: 700, color: '#0f172a', textTransform: 'uppercase' }}>Unit Price</th>
+                  <th style={{ textAlign: 'right', padding: '12px 0', fontSize: '11px', fontWeight: 700, color: '#0f172a', textTransform: 'uppercase' }}>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(items || []).map((item, idx) => (
+                  <tr key={idx} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                    <td style={{ padding: '14px 0', fontSize: '14px', color: '#0f172a' }}>{item.description || 'Item'}</td>
+                    <td style={{ padding: '14px 0', fontSize: '14px', color: '#64748b', textAlign: 'center' }}>{item.qty}</td>
+                    <td style={{ padding: '14px 0', fontSize: '14px', color: '#64748b', textAlign: 'right' }}>${Number(item.unit_price || 0).toFixed(2)}</td>
+                    <td style={{ padding: '14px 0', fontSize: '14px', fontWeight: 600, color: '#0f172a', textAlign: 'right' }}>${(Number(item.qty) * Number(item.unit_price)).toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pricing Summary - Right aligned box */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '32px' }}>
+            <div style={{ width: '280px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', fontSize: '14px' }}>
+                <span style={{ color: '#64748b' }}>Subtotal:</span>
+                <span style={{ color: '#0f172a', fontWeight: 600 }}>${subtotal.toFixed(2)}</span>
+              </div>
+              {discount > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', fontSize: '14px' }}>
+                  <span style={{ color: '#64748b' }}>Discount:</span>
+                  <span style={{ color: '#dc2626', fontWeight: 600 }}>-${discount.toFixed(2)}</span>
+                </div>
+              )}
+              {tax > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', fontSize: '14px' }}>
+                  <span style={{ color: '#64748b' }}>Tax ({Number(quote.tax_rate || 0).toFixed(2)}%):</span>
+                  <span style={{ color: '#0f172a', fontWeight: 600 }}>${tax.toFixed(2)}</span>
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '14px 0', borderTop: '2px solid #1d4ed8', marginTop: '12px', fontSize: '16px', fontWeight: 800 }}>
+                <span style={{ color: '#0f172a' }}>Total:</span>
+                <span style={{ color: '#1d4ed8' }}>${total.toFixed(2)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Notes */}
+          {quote.notes && (
+            <div style={{ marginBottom: '32px', padding: '16px', background: '#f8fafc', borderLeft: '4px solid #1d4ed8', borderRadius: '4px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '8px' }}>Notes</div>
+              <div style={{ fontSize: '14px', color: '#0f172a', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{quote.notes}</div>
+            </div>
+          )}
+
+          {/* Footer */}
+          <div style={{ marginTop: '48px', paddingTop: '16px', borderTop: '1px solid #e2e8f0', textAlign: 'center', fontSize: '11px', color: '#94a3b8' }}>
+            This is a preview of quote Q-{String(quote.quote_number || 0).padStart(4, '0')}. Click outside to close.
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
