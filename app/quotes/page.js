@@ -161,6 +161,8 @@ export default function QuotesPage() {
 }
 
 function QuotePreviewModal({ quote, onClose }) {
+  const [copyToast, setCopyToast] = useState('')
+
   function getSubtotal(items) {
     return (items || []).reduce((s, it) => s + (Number(it.qty) || 0) * (Number(it.unit_price) || 0), 0)
   }
@@ -179,6 +181,12 @@ function QuotePreviewModal({ quote, onClose }) {
   function getTotal(subtotal) {
     const taxable = Math.max(0, subtotal - getDiscountAmount(subtotal))
     return taxable + getTaxAmount(subtotal)
+  }
+
+  function copyLink() {
+    navigator.clipboard.writeText(`${window.location.origin}/q/${quote.token}`)
+    setCopyToast('Link copied!')
+    setTimeout(() => setCopyToast(''), 3000)
   }
 
   const hasPackages = quote.packages && quote.packages.length > 0
@@ -320,11 +328,23 @@ function QuotePreviewModal({ quote, onClose }) {
             </div>
           )}
 
-          {/* Footer */}
-          <div style={{ marginTop: '48px', paddingTop: '16px', borderTop: '1px solid #e2e8f0', textAlign: 'center', fontSize: '11px', color: '#94a3b8' }}>
-            This is a preview of quote Q-{String(quote.quote_number || 0).padStart(4, '0')}. Click outside to close.
+          {/* Footer with Action Buttons */}
+          <div style={{ marginTop: '48px', paddingTop: '20px', borderTop: '1px solid #e2e8f0' }}>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginBottom: '12px' }}>
+              <button onClick={copyLink} style={{ padding: '10px 20px', background: '#eff6ff', border: 'none', borderRadius: '8px', color: '#1d4ed8', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}>📋 Copy Client Link</button>
+              <button onClick={onClose} style={{ padding: '10px 20px', background: '#f1f5f9', border: 'none', borderRadius: '8px', color: '#374151', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}>Close Preview</button>
+            </div>
+            <div style={{ textAlign: 'center', fontSize: '11px', color: '#94a3b8' }}>
+              Quote Q-{String(quote.quote_number || 0).padStart(4, '0')} preview. Share the client link for signing.
+            </div>
           </div>
         </div>
+
+        {copyToast && (
+          <div style={{ position: 'absolute', bottom: '24px', right: '24px', background: '#0f172a', color: '#fff', padding: '12px 20px', borderRadius: '8px', fontSize: '14px', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>
+            {copyToast}
+          </div>
+        )}
       </div>
     </div>
   )
