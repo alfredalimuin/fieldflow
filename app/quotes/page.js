@@ -21,6 +21,7 @@ const SERVICE_TYPES = ['HVAC', 'Plumbing', 'Electrical', 'Vacuum Truck', 'Handym
 export default function QuotesPage() {
   const router = useRouter()
   const [quotes, setQuotes] = useState([])
+  const [templates, setTemplates] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [filterTab, setFilterTab] = useState('All')
@@ -30,14 +31,22 @@ export default function QuotesPage() {
   const [toast, setToast] = useState('')
   const [previewQuote, setPreviewQuote] = useState(null)
   const [exportingPdf, setExportingPdf] = useState(null)
+  const [showTemplateModal, setShowTemplateModal] = useState(false)
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!session) { router.push('/login'); return }
       setAccessToken(session.access_token)
       loadQuotes(session.access_token)
+      loadTemplates(session.access_token)
     })
   }, [])
+
+  async function loadTemplates(token) {
+    const res = await fetch('/api/quote-templates', { headers: { authorization: `Bearer ${token}` } })
+    const data = await res.json()
+    setTemplates(Array.isArray(data) ? data : [])
+  }
 
   async function loadQuotes(token) {
     const res = await fetch('/api/quotes', { headers: { authorization: `Bearer ${token}` } })
@@ -51,6 +60,11 @@ export default function QuotesPage() {
   function copyLink(token) {
     navigator.clipboard.writeText(`${window.location.origin}/q/${token}`)
     showToast('Link copied!')
+  }
+
+  async function createFromTemplate(templateId) {
+    router.push(`/quotes/new?template=${templateId}`)
+    setShowTemplateModal(false)
   }
 
   async function exportQuotePdf(quote) {
@@ -257,6 +271,10 @@ export default function QuotesPage() {
               ))}
             </select>
             <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
+              <button onClick={() => setShowTemplateModal(true)}
+                style={{ padding: '7px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, background: '#f3f4f6', color: '#374151', border: 'none', cursor: 'pointer' }}>
+                📄 From Template
+              </button>
               <button onClick={exportQuotesCSV}
                 style={{ padding: '7px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, background: '#f3f4f6', color: '#374151', border: 'none', cursor: 'pointer' }}>
                 📥 Export CSV
@@ -296,11 +314,13 @@ export default function QuotesPage() {
                     {badge.label}
                   </span>
                   <div style={{ display: 'flex', gap: '5px' }}>
+                    <button onClick={() => router.push(`/quotes/${q.id}`)}
+                      style={{ padding: '4px 9px', background: '#eff6ff', border: 'none', borderRadius: '6px', fontSize: '11px', color: '#1d4ed8', fontWeight: 600, cursor: 'pointer' }}>Details</button>
                     <button onClick={() => setPreviewQuote(q)}
                       style={{ padding: '4px 9px', background: '#eff6ff', border: 'none', borderRadius: '6px', fontSize: '11px', color: '#1d4ed8', fontWeight: 600, cursor: 'pointer' }}>View</button>
                     <button onClick={() => exportQuotePdf(q)} disabled={exportingPdf === q.id}
                       style={{ padding: '4px 9px', background: '#eff6ff', border: 'none', borderRadius: '6px', fontSize: '11px', color: '#1d4ed8', fontWeight: 600, cursor: exportingPdf === q.id ? 'not-allowed' : 'pointer', opacity: exportingPdf === q.id ? 0.6 : 1 }}>
-                      {exportingPdf === q.id ? 'Exporting...' : 'PDF'}
+                      {exportingPdf === q.id ? '...' : 'PDF'}
                     </button>
                     <button onClick={() => copyLink(q.token)}
                       style={{ padding: '4px 9px', background: '#eff6ff', border: 'none', borderRadius: '6px', fontSize: '11px', color: '#1d4ed8', fontWeight: 600, cursor: 'pointer' }}>Link</button>
@@ -333,6 +353,37 @@ export default function QuotesPage() {
       {toast && (
         <div style={{ position: 'fixed', bottom: '24px', right: '24px', background: '#0f172a', color: '#fff', padding: '12px 20px', borderRadius: '8px', fontSize: '14px', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', zIndex: 100 }}>
           {toast}
+        </div>
+      )}
+
+      {showTemplateModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }} onClick={() => setShowTemplateModal(false)}>
+          <div style={{ background: '#fff', borderRadius: '12px', maxWidth: '500px', width: '90%', maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 20px 25px rgba(0,0,0,0.15)', padding: '28px' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: '#0f172a' }}>Create from Template</h2>
+              <button onClick={() => setShowTemplateModal(false)} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: '24px' }}>×</button>
+            </div>
+
+            {templates.length === 0 ? (
+              <div style={{ padding: '32px', textAlign: 'center', color: '#94a3b8' }}>
+                <p>No templates yet.</p>
+                <p style={{ fontSize: '12px' }}>Create a template when editing a quote to use it here.</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {templates.map(t => (
+                  <button key={t.id} onClick={() => createFromTemplate(t.id)} style={{
+                    padding: '14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s'
+                  }} onMouseEnter={e => { e.currentTarget.style.background = '#eff6ff'; e.currentTarget.style.borderColor = '#bfdbfe' }} onMouseLeave={e => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.borderColor = '#e2e8f0' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>{t.name}</div>
+                    <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+                      {t.service_type} • {t.items?.length || t.packages?.length || 0} item(s)
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 

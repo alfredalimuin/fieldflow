@@ -73,6 +73,7 @@ function QuoteFormContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const editId = searchParams.get('id')
+  const templateId = searchParams.get('template')
   const fileInputRef = useRef(null)
   const quoteContainerRef = useRef(null)
 
@@ -150,7 +151,10 @@ function QuoteFormContent() {
       const tData = await tRes.json()
       setTemplates(Array.isArray(tData) ? tData : [])
 
-      if (editId) {
+      if (templateId) {
+        const tmpl = Array.isArray(tData) ? tData.find(x => x.id === templateId) : null
+        if (tmpl) applyTemplateData(tmpl)
+      } else if (editId) {
         const qRes = await fetch('/api/quotes', { headers: { authorization: `Bearer ${session.access_token}` } })
         const qData = await qRes.json()
         const q = (Array.isArray(qData) ? qData : []).find(x => x.id === editId)
@@ -243,8 +247,7 @@ function QuoteFormContent() {
     e.target.value = ''
   }
 
-  async function applyTemplate(templateId) {
-    const template = templates.find(t => t.id === templateId)
+  function applyTemplateData(template) {
     if (!template) return
     setTitle('')
     setServiceType(template.service_type || '')
@@ -260,6 +263,12 @@ function QuoteFormContent() {
       setIsMultiPackage(false)
       setItems(template.items?.length ? template.items : [{ description: '', qty: 1, unit_price: '' }])
     }
+  }
+
+  async function applyTemplate(templateId) {
+    const template = templates.find(t => t.id === templateId)
+    if (!template) return
+    applyTemplateData(template)
     showToast('Template applied!')
   }
 
@@ -349,6 +358,20 @@ function QuoteFormContent() {
     setSaving(false)
     if (res.ok) {
       setQuoteId(data.id); setQuoteToken(data.token || quoteToken); setQuoteNumber(data.quote_number)
+
+      // Log activity if new quote
+      if (!quoteId) {
+        await fetch('/api/quote-activity', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', authorization: `Bearer ${accessToken}` },
+          body: JSON.stringify({
+            quote_id: data.id,
+            action: 'created',
+            description: `Quote created: ${data.title || 'Untitled'}`,
+          }),
+        }).catch(() => {})
+      }
+
       showToast(status === 'sent' ? 'Quote created!' : 'Saved as draft.')
       if (status === 'sent') setTimeout(() => router.push('/quotes'), 1200)
     } else { showToast(data.error || 'Error saving.') }
