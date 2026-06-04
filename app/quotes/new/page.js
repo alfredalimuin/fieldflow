@@ -405,6 +405,17 @@ function QuoteFormContent() {
         <div style={{ flex: 1, padding: '28px 32px', overflowY: 'auto' }}>
           <div ref={quoteContainerRef} style={{ maxWidth: '820px' }}>
 
+            {/* LVJR Branding */}
+            <div style={{ background: '#fff', borderRadius: '10px', padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.07)', marginBottom: '20px', borderTop: '4px solid #ef4444' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <img src="https://assets.zyrosite.com/cdn-cgi/image/format=auto,w=375,fit=crop/aQYbNL3MBVFFF50l/copilot_20260507_122149-1kUGGYsxbeXSOq7S.png" alt="LVJR Logo" style={{ height: '40px', objectFit: 'contain' }} />
+                <div>
+                  <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#0f172a' }}>LVJR Service Solutions Inc.</h2>
+                  <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#64748b', fontStyle: 'italic' }}>"Facilities never sleep. Neither do we."</p>
+                </div>
+              </div>
+            </div>
+
             {templates.length > 0 && (
               <div style={cardStyle}>
                 <label style={labelStyle}>Use a Template (Optional)</label>

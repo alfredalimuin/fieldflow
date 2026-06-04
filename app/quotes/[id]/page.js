@@ -89,34 +89,36 @@ export default function QuoteDetailPage() {
   <style>
     body { font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 20px; background: #f8fafc; }
     .container { max-width: 900px; margin: 0 auto; background: white; padding: 48px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.07); }
-    .header { border-bottom: 2px solid #1d4ed8; padding-bottom: 20px; margin-bottom: 32px; }
+    .branding { border-top: 4px solid #ef4444; padding-bottom: 20px; margin-bottom: 32px; display: flex; align-items: center; gap: 16px; }
+    .branding-logo { height: 50px; }
+    .branding-text h2 { margin: 0; font-size: 18px; font-weight: 700; color: #0f172a; }
+    .branding-text p { margin: 4px 0 0; font-size: 13px; color: #64748b; font-style: italic; }
+    .header { border-bottom: 2px solid #ef4444; padding-bottom: 20px; margin-bottom: 32px; }
     .header-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
-    .logo { font-size: 28px; font-weight: 800; color: #0f172a; } .logo span { color: #2563eb; }
-    .subtitle { font-size: 12px; color: #64748b; margin-top: 4px; }
     .quote-number { text-align: right; }
     .quote-number-label { font-size: 13px; color: #94a3b8; font-weight: 600; margin-bottom: 8px; }
-    .quote-number-value { font-size: 32px; font-weight: 800; color: #1d4ed8; letter-spacing: -1px; }
+    .quote-number-value { font-size: 32px; font-weight: 800; color: #ef4444; letter-spacing: -1px; }
     .quote-title { margin: 0 0 12px; font-size: 26px; font-weight: 800; color: #0f172a; }
     .details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
     .detail-item-label { font-size: 11px; font-weight: 600; color: #94a3b8; text-transform: uppercase; margin-bottom: 4px; }
     .detail-item-value { font-size: 16px; font-weight: 700; color: #0f172a; }
-    .info-box { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 32px; padding: 16px; background: #f8fafc; border-radius: 8px; }
+    .info-box { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 32px; padding: 16px; background: #fef2f2; border-radius: 8px; border-left: 4px solid #ef4444; }
     .info-box-item-label { font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 6px; }
     .info-box-item-value { font-size: 14px; font-weight: 600; color: #0f172a; }
     h2 { margin: 0 0 16px; font-size: 14px; font-weight: 700; color: #0f172a; text-transform: uppercase; }
     table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
-    th { text-align: left; padding: 12px 0; font-size: 11px; font-weight: 700; color: #0f172a; text-transform: uppercase; border-bottom: 2px solid #1d4ed8; }
+    th { text-align: left; padding: 12px 0; font-size: 11px; font-weight: 700; color: #0f172a; text-transform: uppercase; border-bottom: 2px solid #ef4444; }
     td { padding: 14px 0; font-size: 14px; color: #0f172a; border-bottom: 1px solid #e2e8f0; }
     td.number { text-align: right; color: #64748b; }
     .summary { display: flex; justify-content: flex-end; margin-bottom: 32px; }
     .summary-box { width: 280px; }
     .summary-row { display: flex; justify-content: space-between; padding: 10px 0; font-size: 14px; }
-    .summary-row.total { border-top: 2px solid #1d4ed8; padding: 14px 0; margin-top: 12px; font-size: 16px; font-weight: 800; }
+    .summary-row.total { border-top: 2px solid #ef4444; padding: 14px 0; margin-top: 12px; font-size: 16px; font-weight: 800; }
     .summary-row .label { color: #64748b; }
     .summary-row.total .label { color: #0f172a; }
     .summary-row .value { color: #0f172a; font-weight: 600; }
-    .summary-row.total .value { color: #1d4ed8; }
-    .notes-box { margin-bottom: 32px; padding: 16px; background: #f8fafc; border-left: 4px solid #1d4ed8; border-radius: 4px; }
+    .summary-row.total .value { color: #ef4444; }
+    .notes-box { margin-bottom: 32px; padding: 16px; background: #fef2f2; border-left: 4px solid #ef4444; border-radius: 4px; }
     .notes-label { font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 8px; }
     .notes-content { font-size: 14px; color: #0f172a; line-height: 1.6; white-space: pre-wrap; }
     .footer { margin-top: 48px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 11px; color: #94a3b8; }
@@ -124,11 +126,19 @@ export default function QuoteDetailPage() {
 </head>
 <body>
   <div class="container">
+    <div class="branding">
+      <img src="https://assets.zyrosite.com/cdn-cgi/image/format=auto,w=375,fit=crop/aQYbNL3MBVFFF50l/copilot_20260507_122149-1kUGGYsxbeXSOq7S.png" alt="LVJR Logo" class="branding-logo" />
+      <div class="branding-text">
+        <h2>LVJR Service Solutions Inc.</h2>
+        <p>"Facilities never sleep. Neither do we."</p>
+      </div>
+    </div>
+
     <div class="header">
       <div class="header-top">
         <div>
-          <div class="logo">Field<span>Flow</span></div>
-          <div class="subtitle">LVJR Service Solutions Inc.</div>
+          <div style="font-size: 18px; font-weight: 700; color: #0f172a; margin-bottom: 8px;">Service Quote</div>
+          <div style="font-size: 13px; color: #64748b;">13428 Corpus Christi St., Houston, TX 77015 | 832-830-3318</div>
         </div>
         <div class="quote-number">
           <div class="quote-number-label">Quote #</div>
@@ -315,6 +325,22 @@ export default function QuoteDetailPage() {
           </div>
         } />
         <div style={{ flex: 1, padding: '28px 32px', overflowY: 'auto' }}>
+
+          {/* LVJR Branding Header */}
+          <div style={{ background: '#fff', borderRadius: '10px', padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.07)', marginBottom: '20px', borderTop: '4px solid #ef4444' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
+              <img src="https://assets.zyrosite.com/cdn-cgi/image/format=auto,w=375,fit=crop/aQYbNL3MBVFFF50l/copilot_20260507_122149-1kUGGYsxbeXSOq7S.png" alt="LVJR Logo" style={{ height: '40px', objectFit: 'contain' }} />
+              <div>
+                <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#0f172a' }}>LVJR Service Solutions Inc.</h2>
+                <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#64748b', fontStyle: 'italic' }}>"Facilities never sleep. Neither do we."</p>
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', fontSize: '11px' }}>
+              <div><span style={{ color: '#94a3b8' }}>📍</span> 13428 Corpus Christi St., Houston, TX 77015</div>
+              <div><span style={{ color: '#94a3b8' }}>📞</span> 832-830-3318</div>
+              <div><span style={{ color: '#94a3b8' }}>📧</span> admin@lvjrservicesolutions.com</div>
+            </div>
+          </div>
 
           {/* Quote Details */}
           <div style={{ background: '#fff', borderRadius: '10px', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.07)', marginBottom: '20px' }}>

@@ -248,6 +248,17 @@ export default function QuotesPage() {
         } />
         <div style={{ flex: 1, padding: '28px 32px', overflowY: 'auto' }}>
 
+          {/* LVJR Branding */}
+          <div style={{ background: '#fff', borderRadius: '10px', padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.07)', marginBottom: '20px', borderTop: '3px solid #ef4444' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <img src="https://assets.zyrosite.com/cdn-cgi/image/format=auto,w=375,fit=crop/aQYbNL3MBVFFF50l/copilot_20260507_122149-1kUGGYsxbeXSOq7S.png" alt="LVJR Logo" style={{ height: '32px', objectFit: 'contain' }} />
+              <div>
+                <h2 style={{ margin: '0', fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>LVJR Service Solutions Inc.</h2>
+                <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#64748b' }}>"Facilities never sleep. Neither do we."</p>
+              </div>
+            </div>
+          </div>
+
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
             <input value={search} onChange={e => setSearch(e.target.value)}
               placeholder="Search by Q#, client, title, or service…"
