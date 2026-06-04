@@ -41,7 +41,7 @@ export default function Sidebar() {
   const links = [...NAV, ...(role === 'admin' ? ADMIN_NAV : []), ...BOTTOM_NAV]
 
   return (
-    <div style={{ width: '220px', minHeight: '100vh', background: '#0f172a', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+    <div style={{ width: '220px', minHeight: '100vh', background: '#0f172a', display: 'flex', flexDirection: 'column', flexShrink: 0, height: '100vh', overflow: 'hidden' }}>
       <div style={{ padding: '24px 20px 20px' }}>
         <div style={{ fontSize: '20px', fontWeight: 800, color: '#fff', letterSpacing: '-0.5px' }}>
           Field<span style={{ color: '#2563eb' }}>Flow</span>
@@ -49,7 +49,7 @@ export default function Sidebar() {
         <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>LVJR Service Solutions</div>
       </div>
 
-      <nav style={{ flex: 1, padding: '8px 12px' }}>
+      <nav style={{ flex: 1, padding: '8px 12px', overflowY: 'auto' }}>
         {links.map(({ href, label, icon }) => {
           const active = pathname === href || pathname.startsWith(href + '/')
           return (
@@ -68,9 +68,9 @@ export default function Sidebar() {
         })}
       </nav>
 
-      <div style={{ padding: '16px 12px', borderTop: '1px solid #1e293b' }}>
+      <div style={{ padding: '16px 12px', borderTop: '1px solid #1e293b', flexShrink: 0, display: 'block' }}>
         <div style={{ padding: '10px 12px', marginBottom: '8px' }}>
-          <div style={{ fontSize: '12px', fontWeight: 600, color: '#e2e8f0' }}>{name}</div>
+          <div style={{ fontSize: '12px', fontWeight: 600, color: '#e2e8f0' }}>{name || 'Loading...'}</div>
           <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'capitalize', marginTop: '2px' }}>{role}</div>
         </div>
         <button onClick={handleSignOut} style={{
