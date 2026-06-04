@@ -32,6 +32,7 @@ export default function QuotesPage() {
   const [previewQuote, setPreviewQuote] = useState(null)
   const [exportingPdf, setExportingPdf] = useState(null)
   const [sendingQuote, setSendingQuote] = useState(null)
+  const [downloadingSignedPdf, setDownloadingSignedPdf] = useState(null)
   const [showTemplateModal, setShowTemplateModal] = useState(false)
   const importInputRef = useRef(null)
 
@@ -87,6 +88,35 @@ export default function QuotesPage() {
       showToast('Error sending quote')
     } finally {
       setSendingQuote(null)
+    }
+  }
+
+  async function downloadSignedQuote(quoteId, quoteNumber) {
+    setDownloadingSignedPdf(quoteId)
+    try {
+      const res = await fetch(`/api/download-signed-quote?quote_id=${quoteId}`, {
+        headers: { 'authorization': `Bearer ${accessToken}` },
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        showToast('Error: ' + (data.error || 'Failed to download'))
+        return
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `Q-${String(quoteNumber).padStart(4, '0')}-signed.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      showToast('Signed quote downloaded!')
+    } catch (error) {
+      console.error('Download error:', error)
+      showToast('Error downloading quote')
+    } finally {
+      setDownloadingSignedPdf(null)
     }
   }
 
@@ -367,6 +397,12 @@ export default function QuotesPage() {
                       <button onClick={() => sendQuote(q.id)} disabled={sendingQuote === q.id} title="Send quote via email"
                         style={{ padding: '4px 8px', background: '#ef4444', border: 'none', borderRadius: '4px', fontSize: '10px', color: '#fff', fontWeight: 600, cursor: sendingQuote === q.id ? 'not-allowed' : 'pointer', opacity: sendingQuote === q.id ? 0.7 : 1, whiteSpace: 'nowrap' }}>
                         {sendingQuote === q.id ? 'Send...' : 'Send'}
+                      </button>
+                    )}
+                    {q.status === 'accepted' && (
+                      <button onClick={() => downloadSignedQuote(q.id, q.quote_number)} disabled={downloadingSignedPdf === q.id} title="Download signed quote with signature"
+                        style={{ padding: '4px 8px', background: '#15803d', border: 'none', borderRadius: '4px', fontSize: '10px', color: '#fff', fontWeight: 600, cursor: downloadingSignedPdf === q.id ? 'not-allowed' : 'pointer', opacity: downloadingSignedPdf === q.id ? 0.7 : 1, whiteSpace: 'nowrap' }}>
+                        {downloadingSignedPdf === q.id ? 'DL...' : 'Signed'}
                       </button>
                     )}
                     <button onClick={() => router.push(`/quotes/${q.id}`)} title="View details"
