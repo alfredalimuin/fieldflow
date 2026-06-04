@@ -234,7 +234,7 @@ export default function ClientsPage() {
                     {badge.label}
                   </span>
                   <div>
-                    <div style={{ fontSize: '13px', color: '#374151' }}>{c.contact_name || '—'}</div>
+                    <div style={{ fontSize: '13px', color: '#374151' }}>{c.contact_name || 'N/A'}</div>
                     <div style={{ fontSize: '11px', color: '#94a3b8' }}>{c.contact_phone || c.contact_email || ''}</div>
                   </div>
                   <div style={{ display: 'flex', gap: '6px' }}>

@@ -163,7 +163,7 @@ export default function QuoteDetailPage() {
     <div class="info-box">
       <div>
         <div class="info-box-item-label">Service Type</div>
-        <div class="info-box-item-value">${quote.service_type || '—'}</div>
+        <div class="info-box-item-value">${quote.service_type || 'N/A'}</div>
       </div>
       <div>
         <div class="info-box-item-label">Status</div>
@@ -171,7 +171,7 @@ export default function QuoteDetailPage() {
       </div>
       <div>
         <div class="info-box-item-label">Payment Terms</div>
-        <div class="info-box-item-value">${quote.payment_terms || '—'}</div>
+        <div class="info-box-item-value">${quote.payment_terms || 'N/A'}</div>
       </div>
     </div>
 
@@ -361,7 +361,7 @@ export default function QuoteDetailPage() {
               </div>
               <div>
                 <div style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', marginBottom: '4px' }}>SERVICE TYPE</div>
-                <div style={{ fontSize: '14px', fontWeight: 600, color: '#0f172a' }}>{quote.service_type || '—'}</div>
+                <div style={{ fontSize: '14px', fontWeight: 600, color: '#0f172a' }}>{quote.service_type || 'N/A'}</div>
               </div>
               <div>
                 <div style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', marginBottom: '4px' }}>TOTAL</div>

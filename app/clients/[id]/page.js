@@ -244,7 +244,7 @@ export default function ClientDetailPage() {
                     ].map(([label, val]) => (
                       <div key={label}>
                         <div style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>{label}</div>
-                        <div style={{ fontSize: '14px', color: val ? '#0f172a' : '#cbd5e1' }}>{val || '—'}</div>
+                        <div style={{ fontSize: '14px', color: val ? '#0f172a' : '#cbd5e1' }}>{val || 'N/A'}</div>
                       </div>
                     ))}
                   </div>

@@ -420,7 +420,7 @@ function QuoteFormContent() {
               <div style={cardStyle}>
                 <label style={labelStyle}>Use a Template (Optional)</label>
                 <select onChange={e => { if (e.target.value) applyTemplate(e.target.value); e.target.value = '' }} style={selectStyle}>
-                  <option value="">— Select a template to apply —</option>
+                  <option value="">Select a template...</option>
                   {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                 </select>
               </div>
@@ -438,21 +438,21 @@ function QuoteFormContent() {
 
               <div style={{ marginBottom: '16px' }}>
                 <label style={labelStyle}>Title</label>
-                <input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. HVAC Preventive Maintenance — Building A" style={inputStyle} />
+                <input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. HVAC Preventive Maintenance - Building A" style={inputStyle} />
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                 <div>
                   <label style={labelStyle}>Client *</label>
                   <select value={clientId} onChange={e => { setClientId(e.target.value); setSiteId('') }} style={selectStyle}>
-                    <option value="">— Select client —</option>
+                    <option value="">Select a client...</option>
                     {clients.map(c => <option key={c.id} value={c.id}>{c.company_name}</option>)}
                   </select>
                 </div>
                 <div>
                   <label style={labelStyle}>Service Site</label>
                   <select value={siteId} onChange={e => setSiteId(e.target.value)} style={selectStyle} disabled={!clientId || sites.length === 0}>
-                    <option value="">— Select site (optional) —</option>
+                    <option value="">Select a site (optional)...</option>
                     {sites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
                 </div>
@@ -462,7 +462,7 @@ function QuoteFormContent() {
                 <div>
                   <label style={labelStyle}>Service Type</label>
                   <select value={serviceType} onChange={e => setServiceType(e.target.value)} style={selectStyle}>
-                    <option value="">— Select service —</option>
+                    <option value="">Select a service...</option>
                     {SERVICE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </div>

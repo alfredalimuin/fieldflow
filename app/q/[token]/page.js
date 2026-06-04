@@ -206,8 +206,8 @@ export default function PublicQuotePage() {
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '16px', marginBottom: '24px', padding: '16px', background: '#f8fafc', borderRadius: '8px' }}>
             {[
-              ['Service Type', quote.service_type || '—'],
-              ['Priority', PRIORITY_LABEL[quote.priority] || quote.priority || '—'],
+              ['Service Type', quote.service_type || 'N/A'],
+              ['Priority', PRIORITY_LABEL[quote.priority] || quote.priority || 'N/A'],
               quote.expires_at ? ['Valid Until', new Date(quote.expires_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })] : null,
               quote.client_email ? ['Client Email', quote.client_email] : null,
             ].filter(Boolean).map(([label, val]) => (
@@ -241,7 +241,7 @@ export default function PublicQuotePage() {
 
               {selectedPkg && (
                 <div style={{ padding: '16px', background: '#f8fafc', borderRadius: '8px', marginBottom: '16px' }}>
-                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a', marginBottom: '12px' }}>{selectedPkg.name} — Details:</div>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a', marginBottom: '12px' }}>{selectedPkg.name} - Details:</div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 60px 100px 100px', gap: '8px', padding: '8px 0', borderBottom: '2px solid #e2e8f0', marginBottom: '8px' }}>
                     {['Description', 'Qty', 'Unit Price', 'Total'].map(h => (
                       <div key={h} style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>{h}</div>

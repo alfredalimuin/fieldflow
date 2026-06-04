@@ -332,8 +332,8 @@ export default function QuotesPage() {
                       {new Date(q.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                     </div>
                   </div>
-                  <div style={{ fontSize: '12px', color: '#374151' }}>{q.client_name || '—'}</div>
-                  <div style={{ fontSize: '12px', color: '#64748b' }}>{q.service_type || '—'}</div>
+                  <div style={{ fontSize: '12px', color: '#374151' }}>{q.client_name || 'N/A'}</div>
+                  <div style={{ fontSize: '12px', color: '#64748b' }}>{q.service_type || 'Other'}</div>
                   <div style={{ fontSize: '12px', fontWeight: 600, color: '#0f172a' }}>${(q.total || 0).toLocaleString('en-US', { minimumFractionDigits: 0 })}</div>
                   <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                     <button onClick={() => router.push(`/quotes/${q.id}`)} title="View details"

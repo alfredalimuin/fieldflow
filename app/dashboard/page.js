@@ -22,7 +22,7 @@ const STATUS_LABEL = {
 function StatCard({ label, value, sub, color, onClick }) {
   return (
     <div onClick={onClick} style={{ background: '#fff', borderRadius: '10px', padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.07)', borderLeft: `4px solid ${color}`, cursor: 'pointer', transition: 'all 0.2s', transform: 'translateY(0)' }} onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-4px)'} onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
-      <div style={{ fontSize: '28px', fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>{value ?? '—'}</div>
+      <div style={{ fontSize: '28px', fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>{value ?? '0'}</div>
       <div style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginTop: '6px' }}>{label}</div>
       {sub && <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>{sub}</div>}
     </div>
@@ -182,7 +182,7 @@ export default function DashboardPage() {
                   {greeting()}, {userName}
                 </h2>
                 <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
-                  LVJR Service Solutions — FieldFlow operations hub
+                  LVJR Service Solutions | FieldFlow operations hub
                 </p>
               </div>
             </div>
