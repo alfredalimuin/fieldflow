@@ -40,7 +40,7 @@ export async function POST(request) {
     const payload = {
       event_type: 'quote_send',
       quote_id: quote.id,
-      client_email: client?.contact_email || '',
+      client_email: quote.send_to_email || client?.contact_email || '',
       client_name: client?.company_name || 'Client',
       quote_data: {
         number: `Q-${String(quote.quote_number || 0).padStart(4, '0')}`,

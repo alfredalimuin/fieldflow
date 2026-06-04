@@ -95,6 +95,8 @@ function QuoteFormContent() {
   const [expiresAt, setExpiresAt] = useState('')
   const [paymentTerms, setPaymentTerms] = useState('due_on_receipt')
   const [notes, setNotes] = useState('')
+  const [sendToEmail, setSendToEmail] = useState('')
+  const [clientEmails, setClientEmails] = useState([])
 
   const [items, setItems] = useState([{ description: '', qty: 1, unit_price: '' }])
   const [isMultiPackage, setIsMultiPackage] = useState(false)
@@ -181,12 +183,23 @@ function QuoteFormContent() {
   }, [editId])
 
   useEffect(() => {
-    if (!clientId) { setSelectedClient(null); setSites([]); setSiteId(''); return }
+    if (!clientId) { setSelectedClient(null); setSites([]); setSiteId(''); setClientEmails([]); setSendToEmail(''); return }
     const c = clients.find(x => x.id === clientId)
     setSelectedClient(c || null)
+    // Set default email
+    if (c?.contact_email) setSendToEmail(c.contact_email)
     if (accessToken && clientId) {
       fetch(`/api/client-sites?client_id=${clientId}`, { headers: { authorization: `Bearer ${accessToken}` } })
         .then(r => r.json()).then(d => setSites(Array.isArray(d) ? d : []))
+      // Fetch client contacts/emails
+      fetch(`/api/client-contacts?client_id=${clientId}`, { headers: { authorization: `Bearer ${accessToken}` } })
+        .then(r => r.json()).then(d => {
+          const emails = Array.isArray(d) ? d.map(contact => contact.email).filter(Boolean) : []
+          if (c?.contact_email && !emails.includes(c.contact_email)) {
+            emails.unshift(c.contact_email)
+          }
+          setClientEmails([...new Set(emails)])
+        })
     }
   }, [clientId, clients, accessToken])
 
@@ -337,6 +350,7 @@ function QuoteFormContent() {
     const payload = {
       client_id: clientId, client_name: selectedClient?.company_name || '',
       client_email: selectedClient?.contact_email || '',
+      send_to_email: sendToEmail || selectedClient?.contact_email || '',
       site_id: siteId || null, site_name: site?.name || null,
       title, service_type: serviceType, priority,
       expires_at: expiresAt || null, notes, payment_terms: paymentTerms,
@@ -527,6 +541,31 @@ function QuoteFormContent() {
                   {PAYMENT_TERMS.map(pt => <option key={pt.value} value={pt.value}>{pt.label}</option>)}
                 </select>
               </div>
+
+              {clientId && (
+                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                  <div>
+                    <label style={labelStyle}>Send To Email</label>
+                    {clientEmails.length > 0 ? (
+                      <select value={sendToEmail} onChange={e => setSendToEmail(e.target.value)} style={selectStyle}>
+                        <option value="">Select an email...</option>
+                        {clientEmails.map(email => (
+                          <option key={email} value={email}>{email}</option>
+                        ))}
+                        <option value="__custom__">Custom email...</option>
+                      </select>
+                    ) : (
+                      <input value={sendToEmail} onChange={e => setSendToEmail(e.target.value)} placeholder="Enter email address" style={inputStyle} />
+                    )}
+                  </div>
+                  {clientEmails.length > 0 && sendToEmail === '__custom__' && (
+                    <div style={{ gridColumn: '1 / -1' }}>
+                      <label style={labelStyle}>Custom Email Address</label>
+                      <input value={sendToEmail === '__custom__' ? '' : sendToEmail} onChange={e => setSendToEmail(e.target.value)} placeholder="Enter email address" style={inputStyle} />
+                    </div>
+                  )}
+                </div>
+              )}
 
               {selectedClient && (
                 <div style={{ marginTop: '16px', padding: '12px 14px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', gap: '16px' }}>
