@@ -33,6 +33,7 @@ export default function QuotesPage() {
   const [exportingPdf, setExportingPdf] = useState(null)
   const [sendingQuote, setSendingQuote] = useState(null)
   const [downloadingSignedPdf, setDownloadingSignedPdf] = useState(null)
+  const [cancelId, setCancelId] = useState(null)
   const [showTemplateModal, setShowTemplateModal] = useState(false)
   const importInputRef = useRef(null)
 
@@ -117,6 +118,30 @@ export default function QuotesPage() {
       showToast('Error downloading quote')
     } finally {
       setDownloadingSignedPdf(null)
+    }
+  }
+
+  async function confirmCancel() {
+    try {
+      const res = await fetch('/api/quotes', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'authorization': `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ id: cancelId, status: 'canceled' }),
+      })
+      if (res.ok) {
+        showToast('Quote canceled')
+        loadQuotes(accessToken)
+      } else {
+        showToast('Failed to cancel quote')
+      }
+    } catch (error) {
+      console.error('Cancel error:', error)
+      showToast('Error canceling quote')
+    } finally {
+      setCancelId(null)
     }
   }
 
@@ -365,8 +390,8 @@ export default function QuotesPage() {
           </div>
 
           <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 1px 3px rgba(0,0,0,0.07)' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px 110px 90px 100px', padding: '12px 20px', borderBottom: '1px solid #f1f5f9' }}>
-              {['Quote', 'Client', 'Service', 'Total', 'Actions'].map(h => (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px 110px 90px 110px 100px', padding: '12px 20px', borderBottom: '1px solid #f1f5f9' }}>
+              {['Quote', 'Client', 'Service', 'Total', 'Status', 'Actions'].map(h => (
                 <div key={h} style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{h}</div>
               ))}
             </div>
@@ -379,8 +404,10 @@ export default function QuotesPage() {
               </div>
             ) : filtered.map(q => {
               const badge = STATUS_BADGE[q.status] || STATUS_BADGE.draft
+              const statusLabel = q.status === 'draft' ? 'Waiting to Send' : q.status === 'canceled' ? 'Canceled' : q.status.charAt(0).toUpperCase() + q.status.slice(1)
+              const statusColor = q.status === 'draft' ? '#f59e0b' : q.status === 'canceled' ? '#dc2626' : q.status === 'sent' ? '#1d4ed8' : '#15803d'
               return (
-                <div key={q.id} style={{ display: 'grid', gridTemplateColumns: '1fr 140px 110px 90px 100px', alignItems: 'center', padding: '14px 20px', borderBottom: '1px solid #f8fafc', gap: '12px' }}>
+                <div key={q.id} style={{ display: 'grid', gridTemplateColumns: '1fr 140px 110px 90px 110px 100px', alignItems: 'center', padding: '14px 20px', borderBottom: '1px solid #f8fafc', gap: '12px' }}>
                   <div>
                     <div style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>
                       <span style={{ color: '#1d4ed8', fontWeight: 700 }}>Q-{String(q.quote_number || 0).padStart(4, '0')}</span> {q.title || 'Untitled Quote'}
@@ -392,13 +419,12 @@ export default function QuotesPage() {
                   <div style={{ fontSize: '12px', color: '#374151' }}>{q.client_name || 'N/A'}</div>
                   <div style={{ fontSize: '12px', color: '#64748b' }}>{q.service_type || 'Other'}</div>
                   <div style={{ fontSize: '12px', fontWeight: 600, color: '#0f172a' }}>${(q.total || 0).toLocaleString('en-US', { minimumFractionDigits: 0 })}</div>
+
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: '#fff', background: statusColor, padding: '4px 10px', borderRadius: '4px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                    {statusLabel}
+                  </div>
+
                   <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                    {q.status === 'draft' && (
-                      <button onClick={() => sendQuote(q.id)} disabled={sendingQuote === q.id} title="Send quote via email"
-                        style={{ padding: '4px 8px', background: '#ef4444', border: 'none', borderRadius: '4px', fontSize: '10px', color: '#fff', fontWeight: 600, cursor: sendingQuote === q.id ? 'not-allowed' : 'pointer', opacity: sendingQuote === q.id ? 0.7 : 1, whiteSpace: 'nowrap' }}>
-                        {sendingQuote === q.id ? 'Send...' : 'Send'}
-                      </button>
-                    )}
                     {q.status === 'accepted' && (
                       <button onClick={() => downloadSignedQuote(q.id, q.quote_number)} disabled={downloadingSignedPdf === q.id} title="Download signed quote with signature"
                         style={{ padding: '4px 8px', background: '#15803d', border: 'none', borderRadius: '4px', fontSize: '10px', color: '#fff', fontWeight: 600, cursor: downloadingSignedPdf === q.id ? 'not-allowed' : 'pointer', opacity: downloadingSignedPdf === q.id ? 0.7 : 1, whiteSpace: 'nowrap' }}>
@@ -417,6 +443,10 @@ export default function QuotesPage() {
                       style={{ padding: '4px 8px', background: '#eff6ff', border: 'none', borderRadius: '4px', fontSize: '10px', color: '#1d4ed8', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>Link</button>
                     <button onClick={() => router.push(`/quotes/new?id=${q.id}`)} title="Edit quote"
                       style={{ padding: '4px 8px', background: '#f8fafc', border: 'none', borderRadius: '4px', fontSize: '10px', color: '#475569', cursor: 'pointer', whiteSpace: 'nowrap' }}>Edit</button>
+                    {q.status !== 'canceled' && (
+                      <button onClick={() => setCancelId(q.id)} title="Cancel quote"
+                        style={{ padding: '4px 8px', background: '#fef3c7', border: 'none', borderRadius: '4px', fontSize: '10px', color: '#d97706', cursor: 'pointer', whiteSpace: 'nowrap' }}>Cancel</button>
+                    )}
                     <button onClick={() => setDeleteId(q.id)} title="Delete quote"
                       style={{ padding: '4px 8px', background: '#fef2f2', border: 'none', borderRadius: '4px', fontSize: '10px', color: '#dc2626', cursor: 'pointer', whiteSpace: 'nowrap' }}>Del</button>
                   </div>
@@ -427,6 +457,19 @@ export default function QuotesPage() {
           <div style={{ marginTop: '12px', fontSize: '12px', color: '#94a3b8' }}>{filtered.length} of {quotes.length} quote{quotes.length !== 1 ? 's' : ''}</div>
         </div>
       </div>
+
+      {cancelId && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+          <div style={{ background: '#fff', borderRadius: '12px', padding: '28px', width: '360px' }}>
+            <h3 style={{ margin: '0 0 8px', fontSize: '16px', fontWeight: 700, color: '#0f172a' }}>Cancel Quote?</h3>
+            <p style={{ margin: '0 0 20px', fontSize: '14px', color: '#64748b' }}>This will mark the quote as canceled. You can still view and delete it later.</p>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={() => setCancelId(null)} style={{ flex: 1, padding: '10px', background: '#f1f5f9', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px' }}>Keep It</button>
+              <button onClick={confirmCancel} style={{ flex: 1, padding: '10px', background: '#f59e0b', border: 'none', borderRadius: '8px', color: '#fff', cursor: 'pointer', fontSize: '14px', fontWeight: 600 }}>Cancel Quote</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {deleteId && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
