@@ -96,6 +96,7 @@ function QuoteFormContent() {
   const [paymentTerms, setPaymentTerms] = useState('due_on_receipt')
   const [notes, setNotes] = useState('')
   const [sendToEmail, setSendToEmail] = useState('')
+  const [useCustomEmail, setUseCustomEmail] = useState(false)
   const [clientEmails, setClientEmails] = useState([])
 
   const [items, setItems] = useState([{ description: '', qty: 1, unit_price: '' }])
@@ -183,7 +184,7 @@ function QuoteFormContent() {
   }, [editId])
 
   useEffect(() => {
-    if (!clientId) { setSelectedClient(null); setSites([]); setSiteId(''); setClientEmails([]); setSendToEmail(''); return }
+    if (!clientId) { setSelectedClient(null); setSites([]); setSiteId(''); setClientEmails([]); setSendToEmail(''); setUseCustomEmail(false); return }
     const c = clients.find(x => x.id === clientId)
     setSelectedClient(c || null)
     // Set default email
@@ -543,25 +544,28 @@ function QuoteFormContent() {
               </div>
 
               {clientId && (
-                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px', marginBottom: '16px' }}>
-                  <div>
-                    <label style={labelStyle}>Send To Email</label>
-                    {clientEmails.length > 0 ? (
-                      <select value={sendToEmail} onChange={e => setSendToEmail(e.target.value)} style={selectStyle}>
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={labelStyle}>Send To Email</label>
+                  {clientEmails.length > 0 && !useCustomEmail ? (
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <select value={sendToEmail} onChange={e => setSendToEmail(e.target.value)} style={{ ...selectStyle, flex: 1 }}>
                         <option value="">Select an email...</option>
                         {clientEmails.map(email => (
                           <option key={email} value={email}>{email}</option>
                         ))}
-                        <option value="__custom__">Custom email...</option>
                       </select>
-                    ) : (
-                      <input value={sendToEmail} onChange={e => setSendToEmail(e.target.value)} placeholder="Enter email address" style={inputStyle} />
-                    )}
-                  </div>
-                  {clientEmails.length > 0 && sendToEmail === '__custom__' && (
-                    <div style={{ gridColumn: '1 / -1' }}>
-                      <label style={labelStyle}>Custom Email Address</label>
-                      <input value={sendToEmail === '__custom__' ? '' : sendToEmail} onChange={e => setSendToEmail(e.target.value)} placeholder="Enter email address" style={inputStyle} />
+                      <button onClick={() => setUseCustomEmail(true)} style={{ padding: '10px 14px', background: '#f1f5f9', border: '1px solid #d1d5db', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', whiteSpace: 'nowrap' }}>
+                        Other
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <input value={sendToEmail} onChange={e => setSendToEmail(e.target.value)} placeholder="Enter email address" style={{ ...inputStyle, flex: 1 }} />
+                      {clientEmails.length > 0 && (
+                        <button onClick={() => { setUseCustomEmail(false); setSendToEmail(clientEmails[0] || ''); }} style={{ padding: '10px 14px', background: '#f1f5f9', border: '1px solid #d1d5db', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', whiteSpace: 'nowrap' }}>
+                          List
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
