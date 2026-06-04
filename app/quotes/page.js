@@ -32,6 +32,7 @@ export default function QuotesPage() {
   const [previewQuote, setPreviewQuote] = useState(null)
   const [exportingPdf, setExportingPdf] = useState(null)
   const [showTemplateModal, setShowTemplateModal] = useState(false)
+  const importInputRef = useRef(null)
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -221,6 +222,15 @@ export default function QuotesPage() {
     showToast('CSV exported!')
   }
 
+  async function importQuotesCSV(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const text = await file.text()
+    // For now, just show a message - full import would require API endpoint
+    showToast('Quote import feature coming soon!')
+    importInputRef.current.value = ''
+  }
+
   async function confirmDelete() {
     await fetch(`/api/quotes?id=${deleteId}`, { method: 'DELETE', headers: { authorization: `Bearer ${accessToken}` } })
     setDeleteId(null); loadQuotes(accessToken); showToast('Quote deleted.')
@@ -282,20 +292,24 @@ export default function QuotesPage() {
               ))}
             </select>
             <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
-              <button onClick={() => setShowTemplateModal(true)}
+              <button onClick={() => importInputRef.current?.click()}
                 style={{ padding: '7px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, background: '#f3f4f6', color: '#374151', border: 'none', cursor: 'pointer' }}>
-                📄 From Template
+                📥 Import
               </button>
               <button onClick={exportQuotesCSV}
                 style={{ padding: '7px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, background: '#f3f4f6', color: '#374151', border: 'none', cursor: 'pointer' }}>
-                📥 Export CSV
+                📤 Export
+              </button>
+              <button onClick={() => setShowTemplateModal(true)}
+                style={{ padding: '7px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, background: '#f3f4f6', color: '#374151', border: 'none', cursor: 'pointer' }}>
+                📄 Template
               </button>
             </div>
           </div>
 
           <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 1px 3px rgba(0,0,0,0.07)' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 160px 130px 100px 100px 200px', padding: '12px 20px', borderBottom: '1px solid #f1f5f9' }}>
-              {['Quote', 'Client', 'Service', 'Total', 'Status', 'Actions'].map(h => (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px 110px 90px 100px', padding: '12px 20px', borderBottom: '1px solid #f1f5f9' }}>
+              {['Quote', 'Client', 'Service', 'Total', 'Actions'].map(h => (
                 <div key={h} style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{h}</div>
               ))}
             </div>
@@ -309,7 +323,7 @@ export default function QuotesPage() {
             ) : filtered.map(q => {
               const badge = STATUS_BADGE[q.status] || STATUS_BADGE.draft
               return (
-                <div key={q.id} style={{ display: 'grid', gridTemplateColumns: '1fr 160px 130px 100px 100px 200px', alignItems: 'center', padding: '14px 20px', borderBottom: '1px solid #f8fafc', gap: '8px' }}>
+                <div key={q.id} style={{ display: 'grid', gridTemplateColumns: '1fr 140px 110px 90px 100px', alignItems: 'center', padding: '14px 20px', borderBottom: '1px solid #f8fafc', gap: '12px' }}>
                   <div>
                     <div style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>
                       <span style={{ color: '#1d4ed8', fontWeight: 700 }}>Q-{String(q.quote_number || 0).padStart(4, '0')}</span> {q.title || 'Untitled Quote'}
@@ -318,27 +332,24 @@ export default function QuotesPage() {
                       {new Date(q.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                     </div>
                   </div>
-                  <div style={{ fontSize: '13px', color: '#374151' }}>{q.client_name || '—'}</div>
+                  <div style={{ fontSize: '12px', color: '#374151' }}>{q.client_name || '—'}</div>
                   <div style={{ fontSize: '12px', color: '#64748b' }}>{q.service_type || '—'}</div>
-                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>${(q.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
-                  <span style={{ padding: '3px 10px', borderRadius: '99px', fontSize: '11px', fontWeight: 600, background: badge.bg, color: badge.color, display: 'inline-block' }}>
-                    {badge.label}
-                  </span>
-                  <div style={{ display: 'flex', gap: '5px' }}>
-                    <button onClick={() => router.push(`/quotes/${q.id}`)}
-                      style={{ padding: '4px 9px', background: '#eff6ff', border: 'none', borderRadius: '6px', fontSize: '11px', color: '#1d4ed8', fontWeight: 600, cursor: 'pointer' }}>Details</button>
-                    <button onClick={() => setPreviewQuote(q)}
-                      style={{ padding: '4px 9px', background: '#eff6ff', border: 'none', borderRadius: '6px', fontSize: '11px', color: '#1d4ed8', fontWeight: 600, cursor: 'pointer' }}>View</button>
-                    <button onClick={() => exportQuotePdf(q)} disabled={exportingPdf === q.id}
-                      style={{ padding: '4px 9px', background: '#eff6ff', border: 'none', borderRadius: '6px', fontSize: '11px', color: '#1d4ed8', fontWeight: 600, cursor: exportingPdf === q.id ? 'not-allowed' : 'pointer', opacity: exportingPdf === q.id ? 0.6 : 1 }}>
-                      {exportingPdf === q.id ? '...' : 'PDF'}
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: '#0f172a' }}>${(q.total || 0).toLocaleString('en-US', { minimumFractionDigits: 0 })}</div>
+                  <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                    <button onClick={() => router.push(`/quotes/${q.id}`)} title="View details"
+                      style={{ padding: '4px 8px', background: '#eff6ff', border: 'none', borderRadius: '4px', fontSize: '10px', color: '#1d4ed8', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>Details</button>
+                    <button onClick={() => setPreviewQuote(q)} title="Preview quote"
+                      style={{ padding: '4px 8px', background: '#eff6ff', border: 'none', borderRadius: '4px', fontSize: '10px', color: '#1d4ed8', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>View</button>
+                    <button onClick={() => exportQuotePdf(q)} disabled={exportingPdf === q.id} title="Download PDF"
+                      style={{ padding: '4px 8px', background: '#eff6ff', border: 'none', borderRadius: '4px', fontSize: '10px', color: '#1d4ed8', fontWeight: 600, cursor: exportingPdf === q.id ? 'not-allowed' : 'pointer', opacity: exportingPdf === q.id ? 0.6 : 1, whiteSpace: 'nowrap' }}>
+                      {exportingPdf === q.id ? 'PDF...' : 'PDF'}
                     </button>
-                    <button onClick={() => copyLink(q.token)}
-                      style={{ padding: '4px 9px', background: '#eff6ff', border: 'none', borderRadius: '6px', fontSize: '11px', color: '#1d4ed8', fontWeight: 600, cursor: 'pointer' }}>Link</button>
-                    <button onClick={() => router.push(`/quotes/new?id=${q.id}`)}
-                      style={{ padding: '4px 9px', background: '#f8fafc', border: 'none', borderRadius: '6px', fontSize: '11px', color: '#475569', cursor: 'pointer' }}>Edit</button>
-                    <button onClick={() => setDeleteId(q.id)}
-                      style={{ padding: '4px 9px', background: '#fef2f2', border: 'none', borderRadius: '6px', fontSize: '11px', color: '#dc2626', cursor: 'pointer' }}>Del</button>
+                    <button onClick={() => copyLink(q.token)} title="Copy link"
+                      style={{ padding: '4px 8px', background: '#eff6ff', border: 'none', borderRadius: '4px', fontSize: '10px', color: '#1d4ed8', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>Link</button>
+                    <button onClick={() => router.push(`/quotes/new?id=${q.id}`)} title="Edit quote"
+                      style={{ padding: '4px 8px', background: '#f8fafc', border: 'none', borderRadius: '4px', fontSize: '10px', color: '#475569', cursor: 'pointer', whiteSpace: 'nowrap' }}>Edit</button>
+                    <button onClick={() => setDeleteId(q.id)} title="Delete quote"
+                      style={{ padding: '4px 8px', background: '#fef2f2', border: 'none', borderRadius: '4px', fontSize: '10px', color: '#dc2626', cursor: 'pointer', whiteSpace: 'nowrap' }}>Del</button>
                   </div>
                 </div>
               )
