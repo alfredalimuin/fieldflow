@@ -18,12 +18,20 @@ export async function POST(request) {
     const { data: { user }, error: authError } = await supabase.auth.getUser(token)
     if (authError || !user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
-    // Fetch quote
-    const { data: quote, error: quoteError } = await supabase
-      .from('quotes')
-      .select('*')
-      .eq('id', quote_id)
-      .single()
+    // Fetch quote (with retry for new quotes that might not be immediately available)
+    let quote, quoteError
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const res = await supabase
+        .from('quotes')
+        .select('*')
+        .eq('id', quote_id)
+        .single()
+      quote = res.data
+      quoteError = res.error
+
+      if (quote) break
+      if (attempt < 2) await new Promise(r => setTimeout(r, 100 * (attempt + 1)))
+    }
 
     if (quoteError || !quote) {
       return Response.json({ error: 'Quote not found' }, { status: 404 })
