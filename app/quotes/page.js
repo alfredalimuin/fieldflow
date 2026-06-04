@@ -31,6 +31,7 @@ export default function QuotesPage() {
   const [toast, setToast] = useState('')
   const [previewQuote, setPreviewQuote] = useState(null)
   const [exportingPdf, setExportingPdf] = useState(null)
+  const [sendingQuote, setSendingQuote] = useState(null)
   const [showTemplateModal, setShowTemplateModal] = useState(false)
   const importInputRef = useRef(null)
 
@@ -61,6 +62,32 @@ export default function QuotesPage() {
   function copyLink(token) {
     navigator.clipboard.writeText(`${window.location.origin}/q/${token}`)
     showToast('Link copied!')
+  }
+
+  async function sendQuote(quoteId) {
+    setSendingQuote(quoteId)
+    try {
+      const res = await fetch('/api/send-quote', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'authorization': `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ quote_id: quoteId }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        showToast('Quote sent successfully!')
+        loadQuotes(accessToken)
+      } else {
+        showToast('Failed to send quote: ' + (data.error || 'Unknown error'))
+      }
+    } catch (error) {
+      console.error('Send quote error:', error)
+      showToast('Error sending quote')
+    } finally {
+      setSendingQuote(null)
+    }
   }
 
   async function createFromTemplate(templateId) {
@@ -336,6 +363,12 @@ export default function QuotesPage() {
                   <div style={{ fontSize: '12px', color: '#64748b' }}>{q.service_type || 'Other'}</div>
                   <div style={{ fontSize: '12px', fontWeight: 600, color: '#0f172a' }}>${(q.total || 0).toLocaleString('en-US', { minimumFractionDigits: 0 })}</div>
                   <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                    {q.status === 'draft' && (
+                      <button onClick={() => sendQuote(q.id)} disabled={sendingQuote === q.id} title="Send quote via email"
+                        style={{ padding: '4px 8px', background: '#ef4444', border: 'none', borderRadius: '4px', fontSize: '10px', color: '#fff', fontWeight: 600, cursor: sendingQuote === q.id ? 'not-allowed' : 'pointer', opacity: sendingQuote === q.id ? 0.7 : 1, whiteSpace: 'nowrap' }}>
+                        {sendingQuote === q.id ? 'Send...' : 'Send'}
+                      </button>
+                    )}
                     <button onClick={() => router.push(`/quotes/${q.id}`)} title="View details"
                       style={{ padding: '4px 8px', background: '#eff6ff', border: 'none', borderRadius: '4px', fontSize: '10px', color: '#1d4ed8', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>Details</button>
                     <button onClick={() => setPreviewQuote(q)} title="Preview quote"
