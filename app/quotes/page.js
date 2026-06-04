@@ -1,9 +1,11 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../../lib/supabase'
 import Sidebar from '../components/Sidebar'
 import Topbar from '../components/Topbar'
+import html2canvas from 'html2canvas'
+import jsPDF from 'jspdf'
 
 const STATUS_BADGE = {
   draft:    { bg: '#f1f5f9', color: '#475569', label: 'Draft' },
@@ -14,6 +16,7 @@ const STATUS_BADGE = {
 }
 
 const FILTER_TABS = ['All', 'Draft', 'Sent', 'Viewed', 'Accepted', 'Declined']
+const SERVICE_TYPES = ['HVAC', 'Plumbing', 'Electrical', 'Vacuum Truck', 'Handyman', 'Facility Management']
 
 export default function QuotesPage() {
   const router = useRouter()
@@ -21,10 +24,12 @@ export default function QuotesPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [filterTab, setFilterTab] = useState('All')
+  const [serviceFilter, setServiceFilter] = useState('All')
   const [accessToken, setAccessToken] = useState('')
   const [deleteId, setDeleteId] = useState(null)
   const [toast, setToast] = useState('')
   const [previewQuote, setPreviewQuote] = useState(null)
+  const [exportingPdf, setExportingPdf] = useState(null)
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -48,6 +53,160 @@ export default function QuotesPage() {
     showToast('Link copied!')
   }
 
+  async function exportQuotePdf(quote) {
+    setExportingPdf(quote.id)
+    try {
+      const element = document.createElement('div')
+      element.style.position = 'absolute'
+      element.style.left = '-9999px'
+      element.style.width = '900px'
+      element.style.background = '#fff'
+      element.style.padding = '48px'
+      element.style.fontFamily = 'system-ui'
+
+      function getSubtotal(items) {
+        return (items || []).reduce((s, it) => s + (Number(it.qty) || 0) * (Number(it.unit_price) || 0), 0)
+      }
+      function getDiscountAmount(subtotal) {
+        return quote.discount_type === 'percentage'
+          ? subtotal * (Number(quote.discount_value) || 0) / 100
+          : Number(quote.discount_value) || 0
+      }
+      function getTaxAmount(subtotal) {
+        const taxable = Math.max(0, subtotal - getDiscountAmount(subtotal))
+        return taxable * (Number(quote.tax_rate) || 0) / 100
+      }
+      const items = (quote.packages && quote.packages.length > 0) ? quote.packages[0].items : quote.items
+      const subtotal = getSubtotal(items)
+      const discount = getDiscountAmount(subtotal)
+      const tax = getTaxAmount(subtotal)
+      const total = Math.max(0, subtotal - discount) + tax
+
+      element.innerHTML = `
+        <div style="margin-bottom: 32px; border-bottom: 2px solid #1d4ed8; padding-bottom: 20px;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
+            <div>
+              <div style="font-size: 28px; font-weight: 800; color: #0f172a;">Field<span style="color: #2563eb;">Flow</span></div>
+              <div style="font-size: 12px; color: #64748b; margin-top: 4px;">LVJR Service Solutions Inc.</div>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-size: 13px; color: #64748b; font-weight: 600; margin-bottom: 8px;">Quote #</div>
+              <div style="font-size: 32px; font-weight: 800; color: #1d4ed8; letter-spacing: -1px;">Q-${String(quote.quote_number || 0).padStart(4, '0')}</div>
+            </div>
+          </div>
+        </div>
+        <div style="margin-bottom: 32px;">
+          <h1 style="margin: 0 0 12px; font-size: 26px; font-weight: 800; color: #0f172a;">${quote.title || 'Service Quote'}</h1>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+            <div>
+              <div style="font-size: 11px; font-weight: 600; color: #94a3b8; text-transform: uppercase; margin-bottom: 4px;">Prepared For</div>
+              <div style="font-size: 16px; font-weight: 700; color: #0f172a;">${quote.client_name || 'N/A'}</div>
+            </div>
+            <div>
+              <div style="font-size: 11px; font-weight: 600; color: #94a3b8; text-transform: uppercase; margin-bottom: 4px;">Date</div>
+              <div style="font-size: 16px; font-weight: 700; color: #0f172a;">${new Date(quote.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
+            </div>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 32px; padding: 16px; background: #f8fafc; border-radius: 8px;">
+          <div>
+            <div style="font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 6px;">Service Type</div>
+            <div style="font-size: 14px; font-weight: 600; color: #0f172a;">${quote.service_type || '—'}</div>
+          </div>
+          <div>
+            <div style="font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 6px;">Status</div>
+            <div style="font-size: 14px; font-weight: 600; color: #0f172a;">${quote.status?.charAt(0).toUpperCase() + quote.status?.slice(1)}</div>
+          </div>
+        </div>
+        <div style="margin-bottom: 32px;">
+          <h2 style="margin: 0 0 16px; font-size: 14px; font-weight: 700; color: #0f172a; text-transform: uppercase;">Line Items</h2>
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 16px;">
+            <thead>
+              <tr style="border-bottom: 2px solid #1d4ed8;">
+                <th style="text-align: left; padding: 12px 0; font-size: 11px; font-weight: 700; color: #0f172a; text-transform: uppercase;">Description</th>
+                <th style="text-align: center; padding: 12px 0; font-size: 11px; font-weight: 700; color: #0f172a; text-transform: uppercase;">Qty</th>
+                <th style="text-align: right; padding: 12px 0; font-size: 11px; font-weight: 700; color: #0f172a; text-transform: uppercase;">Unit Price</th>
+                <th style="text-align: right; padding: 12px 0; font-size: 11px; font-weight: 700; color: #0f172a; text-transform: uppercase;">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${(items || []).map((item, idx) => `
+                <tr style="border-bottom: 1px solid #e2e8f0;">
+                  <td style="padding: 14px 0; font-size: 14px; color: #0f172a;">${item.description || 'Item'}</td>
+                  <td style="padding: 14px 0; font-size: 14px; color: #64748b; text-align: center;">${item.qty}</td>
+                  <td style="padding: 14px 0; font-size: 14px; color: #64748b; text-align: right;">$${Number(item.unit_price || 0).toFixed(2)}</td>
+                  <td style="padding: 14px 0; font-size: 14px; font-weight: 600; color: #0f172a; text-align: right;">$${(Number(item.qty) * Number(item.unit_price)).toFixed(2)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+        <div style="display: flex; justify-content: flex-end; margin-bottom: 32px;">
+          <div style="width: 280px;">
+            <div style="display: flex; justify-content: space-between; padding: 10px 0; font-size: 14px;">
+              <span style="color: #64748b;">Subtotal:</span>
+              <span style="color: #0f172a; font-weight: 600;">$${subtotal.toFixed(2)}</span>
+            </div>
+            ${discount > 0 ? `
+              <div style="display: flex; justify-content: space-between; padding: 10px 0; font-size: 14px;">
+                <span style="color: #64748b;">Discount:</span>
+                <span style="color: #dc2626; font-weight: 600;">-$${discount.toFixed(2)}</span>
+              </div>
+            ` : ''}
+            ${tax > 0 ? `
+              <div style="display: flex; justify-content: space-between; padding: 10px 0; font-size: 14px;">
+                <span style="color: #64748b;">Tax (${Number(quote.tax_rate || 0).toFixed(2)}%):</span>
+                <span style="color: #0f172a; font-weight: 600;">$${tax.toFixed(2)}</span>
+              </div>
+            ` : ''}
+            <div style="display: flex; justify-content: space-between; padding: 14px 0; border-top: 2px solid #1d4ed8; margin-top: 12px; font-size: 16px; font-weight: 800;">
+              <span style="color: #0f172a;">Total:</span>
+              <span style="color: #1d4ed8;">$${total.toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+      `
+      document.body.appendChild(element)
+      const canvas = await html2canvas(element, { scale: 2, backgroundColor: '#fff' })
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+      const imgWidth = 210
+      const imgHeight = (canvas.height * imgWidth) / canvas.width
+      const imgData = canvas.toDataURL('image/png')
+      pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight)
+      pdf.save(`quote-Q-${String(quote.quote_number || 0).padStart(4, '0')}.pdf`)
+      document.body.removeChild(element)
+      showToast('PDF exported!')
+    } catch (error) {
+      console.error('PDF export error:', error)
+      showToast('Failed to export PDF')
+    }
+    setExportingPdf(null)
+  }
+
+  function exportQuotesCSV() {
+    const data = filtered.map(q => ({
+      quote_number: `Q-${String(q.quote_number || 0).padStart(4, '0')}`,
+      title: q.title || '',
+      client_name: q.client_name || '',
+      service_type: q.service_type || '',
+      total: q.total || 0,
+      status: q.status || '',
+      created_at: new Date(q.created_at).toLocaleDateString('en-US'),
+    }))
+    const headers = Object.keys(data[0] || {})
+    const csv = [
+      headers.join(','),
+      ...data.map(r => headers.map(h => `"${(r[h] || '').toString().replace(/"/g, '""')}"`).join(',')),
+    ].join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `quotes-${new Date().toISOString().split('T')[0]}.csv`
+    a.click()
+    showToast('CSV exported!')
+  }
+
   async function confirmDelete() {
     await fetch(`/api/quotes?id=${deleteId}`, { method: 'DELETE', headers: { authorization: `Bearer ${accessToken}` } })
     setDeleteId(null); loadQuotes(accessToken); showToast('Quote deleted.')
@@ -55,6 +214,7 @@ export default function QuotesPage() {
 
   const filtered = quotes
     .filter(q => filterTab === 'All' || q.status === filterTab.toLowerCase())
+    .filter(q => serviceFilter === 'All' || q.service_type === serviceFilter)
     .filter(q =>
       (q.title || '').toLowerCase().includes(search.toLowerCase()) ||
       (q.client_name || '').toLowerCase().includes(search.toLowerCase()) ||
@@ -86,6 +246,21 @@ export default function QuotesPage() {
                   color: filterTab === t ? '#fff' : '#64748b', border: 'none', cursor: 'pointer',
                 }}>{t}</button>
               ))}
+            </div>
+            <select value={serviceFilter} onChange={e => setServiceFilter(e.target.value)} style={{
+              padding: '7px 12px', borderRadius: '8px', fontSize: '13px', background: '#f1f5f9', color: '#64748b',
+              border: '1px solid #d1d5db', cursor: 'pointer',
+            }}>
+              <option value="All">All Services</option>
+              {SERVICE_TYPES.map(s => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
+              <button onClick={exportQuotesCSV}
+                style={{ padding: '7px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, background: '#f3f4f6', color: '#374151', border: 'none', cursor: 'pointer' }}>
+                📥 Export CSV
+              </button>
             </div>
           </div>
 
@@ -123,8 +298,12 @@ export default function QuotesPage() {
                   <div style={{ display: 'flex', gap: '5px' }}>
                     <button onClick={() => setPreviewQuote(q)}
                       style={{ padding: '4px 9px', background: '#eff6ff', border: 'none', borderRadius: '6px', fontSize: '11px', color: '#1d4ed8', fontWeight: 600, cursor: 'pointer' }}>View</button>
+                    <button onClick={() => exportQuotePdf(q)} disabled={exportingPdf === q.id}
+                      style={{ padding: '4px 9px', background: '#eff6ff', border: 'none', borderRadius: '6px', fontSize: '11px', color: '#1d4ed8', fontWeight: 600, cursor: exportingPdf === q.id ? 'not-allowed' : 'pointer', opacity: exportingPdf === q.id ? 0.6 : 1 }}>
+                      {exportingPdf === q.id ? 'Exporting...' : 'PDF'}
+                    </button>
                     <button onClick={() => copyLink(q.token)}
-                      style={{ padding: '4px 9px', background: '#eff6ff', border: 'none', borderRadius: '6px', fontSize: '11px', color: '#1d4ed8', fontWeight: 600, cursor: 'pointer' }}>Copy Link</button>
+                      style={{ padding: '4px 9px', background: '#eff6ff', border: 'none', borderRadius: '6px', fontSize: '11px', color: '#1d4ed8', fontWeight: 600, cursor: 'pointer' }}>Link</button>
                     <button onClick={() => router.push(`/quotes/new?id=${q.id}`)}
                       style={{ padding: '4px 9px', background: '#f8fafc', border: 'none', borderRadius: '6px', fontSize: '11px', color: '#475569', cursor: 'pointer' }}>Edit</button>
                     <button onClick={() => setDeleteId(q.id)}

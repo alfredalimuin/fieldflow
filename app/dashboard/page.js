@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '../../lib/supabase'
 import Sidebar from '../components/Sidebar'
 import Topbar from '../components/Topbar'
+import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 
 const MODULES = [
   { href: '/clients',  label: 'Clients',  icon: '🏢', desc: 'Manage client companies and service sites', color: '#eff6ff', border: '#bfdbfe', iconBg: '#2563eb' },
@@ -53,6 +54,8 @@ export default function DashboardPage() {
   const [stats, setStats] = useState(null)
   const [clients, setClients] = useState([])
   const [sites, setSites] = useState([])
+  const [quotes, setQuotes] = useState([])
+  const [quoteStats, setQuoteStats] = useState(null)
   const [modalType, setModalType] = useState(null)
 
   useEffect(() => {
@@ -61,22 +64,51 @@ export default function DashboardPage() {
       setUserName(session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'there')
       const token = session.access_token
 
-      const [clientsRes, sitesRes] = await Promise.all([
+      const [clientsRes, sitesRes, quotesRes] = await Promise.all([
         fetch('/api/clients', { headers: { authorization: `Bearer ${token}` } }),
         fetch('/api/client-sites', { headers: { authorization: `Bearer ${token}` } }),
+        fetch('/api/quotes', { headers: { authorization: `Bearer ${token}` } }),
       ])
       const clientsData = await clientsRes.json().catch(() => [])
       const sitesData = await sitesRes.json().catch(() => [])
+      const quotesData = await quotesRes.json().catch(() => [])
 
       const all = Array.isArray(clientsData) ? clientsData : []
+      const allQuotes = Array.isArray(quotesData) ? quotesData : []
       setClients(all)
       setSites(Array.isArray(sitesData) ? sitesData : [])
+      setQuotes(allQuotes)
 
       setStats({
         total: all.length,
         active: all.filter(c => (c.status || 'active') === 'active').length,
         prospects: all.filter(c => c.status === 'prospect').length,
         sites: Array.isArray(sitesData) ? sitesData.length : 0,
+      })
+
+      const statusCounts = { draft: 0, sent: 0, viewed: 0, accepted: 0, declined: 0 }
+      allQuotes.forEach(q => {
+        const status = (q.status || 'draft').toLowerCase()
+        if (statusCounts.hasOwnProperty(status)) statusCounts[status]++
+      })
+
+      const chartData = [
+        { name: 'Draft', value: statusCounts.draft, fill: '#94a3b8' },
+        { name: 'Sent', value: statusCounts.sent, fill: '#2563eb' },
+        { name: 'Viewed', value: statusCounts.viewed, fill: '#f59e0b' },
+        { name: 'Accepted', value: statusCounts.accepted, fill: '#10b981' },
+        { name: 'Declined', value: statusCounts.declined, fill: '#ef4444' },
+      ].filter(d => d.value > 0)
+
+      setQuoteStats({
+        total: allQuotes.length,
+        draft: statusCounts.draft,
+        sent: statusCounts.sent,
+        viewed: statusCounts.viewed,
+        accepted: statusCounts.accepted,
+        declined: statusCounts.declined,
+        chartData: chartData.length > 0 ? chartData : [{ name: 'No data', value: 1, fill: '#e5e7eb' }],
+        totalValue: allQuotes.reduce((sum, q) => sum + (Number(q.total) || 0), 0),
       })
     })
   }, [])
@@ -111,6 +143,61 @@ export default function DashboardPage() {
             <StatCard label="Prospects" value={stats?.prospects} sub="In pipeline" color="#d97706" onClick={() => setModalType('prospect')} />
             <StatCard label="Service Sites" value={stats?.sites} sub="Across all clients" color="#7c3aed" onClick={() => setModalType('sites')} />
           </div>
+
+          {/* Quote Analytics */}
+          {quoteStats && quoteStats.total > 0 && (
+            <div style={{ marginBottom: '28px' }}>
+              <h3 style={{ margin: '0 0 16px', fontSize: '13px', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Quote Analytics</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div style={{ background: '#fff', borderRadius: '10px', padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.07)' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#64748b', marginBottom: '16px' }}>Quote Status Distribution</div>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie data={quoteStats.chartData} cx="50%" cy="50%" labelLine={false} label={({ name, value }) => `${name}: ${value}`} outerRadius={100} fill="#8884d8" dataKey="value">
+                        {quoteStats.chartData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.fill} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div style={{ background: '#fff', borderRadius: '10px', padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.07)' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#64748b', marginBottom: '16px' }}>Quote Summary</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '13px', color: '#64748b' }}>Total Quotes:</span>
+                      <span style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a' }}>{quoteStats.total}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '13px', color: '#64748b' }}>Total Value:</span>
+                      <span style={{ fontSize: '16px', fontWeight: 700, color: '#2563eb' }}>${quoteStats.totalValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '12px', marginTop: '12px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '12px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ color: '#94a3b8' }}>Draft:</span>
+                          <span style={{ fontWeight: 600, color: '#64748b' }}>{quoteStats.draft}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ color: '#94a3b8' }}>Sent:</span>
+                          <span style={{ fontWeight: 600, color: '#2563eb' }}>{quoteStats.sent}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ color: '#94a3b8' }}>Viewed:</span>
+                          <span style={{ fontWeight: 600, color: '#f59e0b' }}>{quoteStats.viewed}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ color: '#94a3b8' }}>Accepted:</span>
+                          <span style={{ fontWeight: 600, color: '#10b981' }}>{quoteStats.accepted}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Module Cards */}
           <h3 style={{ margin: '0 0 14px', fontSize: '13px', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Modules</h3>

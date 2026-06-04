@@ -28,6 +28,7 @@ export default function ClientsPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [filterTab, setFilterTab] = useState('All')
+  const [typeFilter, setTypeFilter] = useState('All')
   const [accessToken, setAccessToken] = useState('')
   const [deleteId, setDeleteId] = useState(null)
   const [toast, setToast] = useState('')
@@ -129,6 +130,7 @@ export default function ClientsPage() {
 
   const filtered = clients
     .filter(c => filterTab === 'All' || (c.status || 'active').toLowerCase() === filterTab.toLowerCase())
+    .filter(c => typeFilter === 'All' || c.client_type === typeFilter)
     .filter(c =>
       (c.company_name || '').toLowerCase().includes(search.toLowerCase()) ||
       (c.contact_name || '').toLowerCase().includes(search.toLowerCase()) ||
@@ -152,7 +154,7 @@ export default function ClientsPage() {
             <input value={search} onChange={e => setSearch(e.target.value)}
               placeholder="Search by company, contact, or email…"
               style={{ padding: '10px 14px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', width: '300px', outline: 'none' }} />
-            <div style={{ display: 'flex', gap: '4px' }}>
+            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
               {FILTER_TABS.map(t => (
                 <button key={t} onClick={() => setFilterTab(t)} style={{
                   padding: '7px 14px', borderRadius: '8px', fontSize: '13px', fontWeight: filterTab === t ? 600 : 400,
@@ -162,6 +164,15 @@ export default function ClientsPage() {
                 }}>{t}</button>
               ))}
             </div>
+            <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} style={{
+              padding: '7px 12px', borderRadius: '8px', fontSize: '13px', background: '#f1f5f9', color: '#64748b',
+              border: '1px solid #d1d5db', cursor: 'pointer',
+            }}>
+              <option value="All">All Types</option>
+              {Object.entries(TYPE_LABEL).map(([key, val]) => (
+                <option key={key} value={key}>{val}</option>
+              ))}
+            </select>
             <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
               <button onClick={() => importInputRef.current?.click()}
                 style={{ padding: '7px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, background: '#f3f4f6', color: '#374151', border: 'none', cursor: 'pointer' }}>
