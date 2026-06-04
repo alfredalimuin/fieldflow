@@ -330,7 +330,7 @@ function QuoteFormContent() {
     showToast('PDF exported!')
   }
 
-  async function save(status) {
+  async function save(status, sendImmediately = false) {
     if (!clientId) { showToast('Please select a client.'); return }
     setSaving(true)
     const site = sites.find(s => s.id === siteId)
@@ -373,9 +373,15 @@ function QuoteFormContent() {
           }),
         }).catch(() => {})
 
-        // Show send modal for new quotes
+        // Send immediately if requested, otherwise show modal
         if (status === 'sent') {
-          setShowSendModal(true)
+          if (sendImmediately) {
+            // Send directly without modal
+            await sendQuoteNow(data.id)
+          } else {
+            // Show modal to ask user
+            setShowSendModal(true)
+          }
         }
       } else {
         showToast('Quote updated.')
@@ -391,8 +397,9 @@ function QuoteFormContent() {
     showToast('Link copied!')
   }
 
-  async function sendQuoteNow() {
-    if (!quoteId) return
+  async function sendQuoteNow(qId = null) {
+    const id = qId || quoteId
+    if (!id) return
     setSendingNow(true)
     try {
       const res = await fetch('/api/send-quote', {
@@ -401,7 +408,7 @@ function QuoteFormContent() {
           'Content-Type': 'application/json',
           'authorization': `Bearer ${accessToken}`,
         },
-        body: JSON.stringify({ quote_id: quoteId }),
+        body: JSON.stringify({ quote_id: id }),
       })
       const data = await res.json()
       if (res.ok) {
@@ -741,6 +748,18 @@ function QuoteFormContent() {
                 </div>
               </div>
             )}
+
+            {/* Bottom Action Buttons */}
+            <div style={{ display: 'flex', gap: '12px', marginTop: '32px' }}>
+              <button onClick={() => save('draft')} disabled={saving}
+                style={{ flex: 1, padding: '14px', background: '#f1f5f9', border: 'none', borderRadius: '8px', color: '#374151', fontSize: '14px', fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1 }}>
+                Create Quote
+              </button>
+              <button onClick={() => save('sent', true)} disabled={saving}
+                style={{ flex: 1, padding: '14px', background: '#ef4444', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '14px', fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1 }}>
+                {saving ? 'Creating & Sending...' : 'Create & Send Quote'}
+              </button>
+            </div>
 
           </div>
         </div>
