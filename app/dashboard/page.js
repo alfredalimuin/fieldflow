@@ -56,6 +56,7 @@ export default function DashboardPage() {
   const [sites, setSites] = useState([])
   const [quotes, setQuotes] = useState([])
   const [quoteStats, setQuoteStats] = useState(null)
+  const [activities, setActivities] = useState([])
   const [modalType, setModalType] = useState(null)
 
   useEffect(() => {
@@ -87,9 +88,26 @@ export default function DashboardPage() {
       })
 
       const statusCounts = { draft: 0, sent: 0, viewed: 0, accepted: 0, declined: 0 }
+      let draftValue = 0, sentValue = 0, acceptedValue = 0, overdue = 0
+      const serviceCount = {}
+
       allQuotes.forEach(q => {
         const status = (q.status || 'draft').toLowerCase()
         if (statusCounts.hasOwnProperty(status)) statusCounts[status]++
+
+        // Revenue pipeline
+        if (status === 'draft') draftValue += Number(q.total) || 0
+        if (status === 'sent' || status === 'viewed') sentValue += Number(q.total) || 0
+        if (status === 'accepted') acceptedValue += Number(q.total) || 0
+
+        // Overdue check
+        if (q.expires_at && new Date(q.expires_at) < new Date() && status !== 'accepted' && status !== 'declined') {
+          overdue++
+        }
+
+        // Service breakdown
+        const svc = q.service_type || 'Other'
+        serviceCount[svc] = (serviceCount[svc] || 0) + 1
       })
 
       const chartData = [
@@ -100,6 +118,10 @@ export default function DashboardPage() {
         { name: 'Declined', value: statusCounts.declined, fill: '#ef4444' },
       ].filter(d => d.value > 0)
 
+      const serviceData = Object.entries(serviceCount)
+        .map(([name, value]) => ({ name, value, fill: ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#7c3aed'][Object.keys(serviceCount).indexOf(name) % 5] }))
+        .sort((a, b) => b.value - a.value)
+
       setQuoteStats({
         total: allQuotes.length,
         draft: statusCounts.draft,
@@ -109,7 +131,22 @@ export default function DashboardPage() {
         declined: statusCounts.declined,
         chartData: chartData.length > 0 ? chartData : [{ name: 'No data', value: 1, fill: '#e5e7eb' }],
         totalValue: allQuotes.reduce((sum, q) => sum + (Number(q.total) || 0), 0),
+        draftValue,
+        sentValue,
+        acceptedValue,
+        pendingApprovals: statusCounts.sent + statusCounts.viewed,
+        overdue,
+        serviceData,
       })
+
+      // Fetch recent activities from all quotes
+      const allActivities = []
+      for (const q of allQuotes.slice(0, 10)) {
+        const aRes = await fetch(`/api/quote-activity?quote_id=${q.id}`, { headers: { authorization: `Bearer ${token}` } })
+        const aData = await aRes.json()
+        if (Array.isArray(aData)) allActivities.push(...aData)
+      }
+      setActivities(allActivities.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 10))
     })
   }, [])
 
@@ -127,22 +164,138 @@ export default function DashboardPage() {
         <Topbar title="Dashboard" />
         <div style={{ flex: 1, padding: '28px 32px', overflowY: 'auto' }}>
 
-          <div style={{ marginBottom: '24px' }}>
-            <h2 style={{ margin: '0 0 4px', fontSize: '20px', fontWeight: 700, color: '#0f172a' }}>
-              {greeting()}, {userName}
-            </h2>
-            <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
-              LVJR Service Solutions — FieldFlow operations hub
-            </p>
+          <div style={{ marginBottom: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '16px' }}>
+              <div>
+                <h2 style={{ margin: '0 0 4px', fontSize: '20px', fontWeight: 700, color: '#0f172a' }}>
+                  {greeting()}, {userName}
+                </h2>
+                <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
+                  LVJR Service Solutions — FieldFlow operations hub
+                </p>
+              </div>
+            </div>
+
+            {/* Quick Action Bar */}
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <button onClick={() => router.push('/clients/new')}
+                style={{ padding: '10px 16px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
+                ➕ New Client
+              </button>
+              <button onClick={() => router.push('/quotes/new')}
+                style={{ padding: '10px 16px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
+                📋 New Quote
+              </button>
+              <button onClick={() => router.push('/clients')}
+                style={{ padding: '10px 16px', background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
+                👥 View Clients
+              </button>
+              <button onClick={() => router.push('/quotes')}
+                style={{ padding: '10px 16px', background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
+                📊 View Quotes
+              </button>
+            </div>
           </div>
 
-          {/* Stats Row */}
+          {/* Quick Stats Row */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '28px' }}>
             <StatCard label="Total Clients" value={stats?.total} sub="All client accounts" color="#2563eb" onClick={() => setModalType('all')} />
             <StatCard label="Active Clients" value={stats?.active} sub="Currently active" color="#16a34a" onClick={() => setModalType('active')} />
             <StatCard label="Prospects" value={stats?.prospects} sub="In pipeline" color="#d97706" onClick={() => setModalType('prospect')} />
-            <StatCard label="Service Sites" value={stats?.sites} sub="Across all clients" color="#7c3aed" onClick={() => setModalType('sites')} />
+            <StatCard label="Pending Approvals" value={quoteStats?.pendingApprovals} sub="Awaiting response" color="#f59e0b" onClick={() => router.push('/quotes')} />
           </div>
+
+          {/* Pipeline & Overdue Row */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '28px' }}>
+            <div style={{ background: '#fff', borderRadius: '10px', padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.07)', borderLeft: '4px solid #2563eb' }}>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: '#94a3b8', marginBottom: '12px', textTransform: 'uppercase' }}>Pipeline Value</div>
+              <div style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', marginBottom: '12px' }}>
+                ${(quoteStats?.draftValue || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })}
+              </div>
+              <div style={{ fontSize: '11px', color: '#64748b' }}>In draft quotes</div>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: '#2563eb', marginTop: '8px' }}>
+                ${(quoteStats?.sentValue || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })} awaiting
+              </div>
+            </div>
+            <div style={{ background: '#fff', borderRadius: '10px', padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.07)', borderLeft: '4px solid #10b981' }}>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: '#94a3b8', marginBottom: '12px', textTransform: 'uppercase' }}>Accepted Value</div>
+              <div style={{ fontSize: '24px', fontWeight: 800, color: '#10b981', marginBottom: '12px' }}>
+                ${(quoteStats?.acceptedValue || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })}
+              </div>
+              <div style={{ fontSize: '11px', color: '#64748b' }}>Ready to convert to jobs</div>
+            </div>
+            <div style={{ background: '#fff', borderRadius: '10px', padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.07)', borderLeft: `4px solid ${quoteStats?.overdue > 0 ? '#ef4444' : '#d1d5db'}` }}>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: '#94a3b8', marginBottom: '12px', textTransform: 'uppercase' }}>Overdue Quotes</div>
+              <div style={{ fontSize: '24px', fontWeight: 800, color: quoteStats?.overdue > 0 ? '#ef4444' : '#94a3b8', marginBottom: '12px' }}>
+                {quoteStats?.overdue || 0}
+              </div>
+              <div style={{ fontSize: '11px', color: '#64748b' }}>Expiration date passed</div>
+            </div>
+          </div>
+
+          {/* Recent Activity */}
+          {activities.length > 0 && (
+            <div style={{ marginBottom: '28px' }}>
+              <h3 style={{ margin: '0 0 16px', fontSize: '13px', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Recent Activity</h3>
+              <div style={{ background: '#fff', borderRadius: '10px', padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.07)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {activities.map((a, i) => (
+                    <div key={i} style={{ display: 'flex', gap: '12px', alignItems: 'start', paddingBottom: '12px', borderBottom: i < activities.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+                      <div style={{ fontSize: '16px', minWidth: '24px' }}>
+                        {a.action === 'created' ? '✨' : a.action === 'sent' ? '📤' : a.action === 'viewed' ? '👁️' : a.action === 'accepted' ? '✅' : a.action === 'declined' ? '❌' : a.action === 'job_created' ? '🔧' : '📝'}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a', textTransform: 'capitalize' }}>{a.action.replace(/_/g, ' ')}</div>
+                        {a.description && <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>{a.description}</div>}
+                        <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>{new Date(a.created_at).toLocaleDateString()} {new Date(a.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Customer Pipeline & Services */}
+          {stats && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '28px' }}>
+              {/* Customer Pipeline */}
+              <div style={{ background: '#fff', borderRadius: '10px', padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.07)' }}>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: '#64748b', marginBottom: '16px' }}>Customer Acquisition Funnel</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div style={{ padding: '12px', background: '#f0fdf4', borderRadius: '8px', borderLeft: '3px solid #10b981' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: '#15803d' }}>Active Clients</div>
+                    <div style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a', marginTop: '4px' }}>{stats.active}</div>
+                  </div>
+                  <div style={{ padding: '12px', background: '#fffbeb', borderRadius: '8px', borderLeft: '3px solid #f59e0b' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: '#92400e' }}>Prospects</div>
+                    <div style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a', marginTop: '4px' }}>{stats.prospects}</div>
+                  </div>
+                  <div style={{ padding: '12px', background: '#eff6ff', borderRadius: '8px', borderLeft: '3px solid #2563eb' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: '#1e40af' }}>Service Sites</div>
+                    <div style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a', marginTop: '4px' }}>{stats.sites}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Services Breakdown */}
+              {quoteStats?.serviceData && quoteStats.serviceData.length > 0 && (
+                <div style={{ background: '#fff', borderRadius: '10px', padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.07)' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#64748b', marginBottom: '16px' }}>Services Breakdown</div>
+                  <ResponsiveContainer width="100%" height={250}>
+                    <PieChart>
+                      <Pie data={quoteStats.serviceData} cx="50%" cy="50%" labelLine={false} label={({ name, value }) => `${name}: ${value}`} outerRadius={80} fill="#8884d8" dataKey="value">
+                        {quoteStats.serviceData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.fill} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Quote Analytics */}
           {quoteStats && quoteStats.total > 0 && (
