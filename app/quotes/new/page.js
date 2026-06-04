@@ -118,6 +118,8 @@ function QuoteFormContent() {
   const [toast, setToast] = useState('')
   const [showSaveTemplate, setShowSaveTemplate] = useState(false)
   const [templateName, setTemplateName] = useState('')
+  const [showSendModal, setShowSendModal] = useState(false)
+  const [sendingNow, setSendingNow] = useState(false)
 
   function getSubtotal(itms) {
     return (itms || []).reduce((s, it) => s + (Number(it.qty) || 0) * (Number(it.unit_price) || 0), 0)
@@ -370,10 +372,16 @@ function QuoteFormContent() {
             description: `Quote created: ${data.title || 'Untitled'}`,
           }),
         }).catch(() => {})
+
+        // Show send modal for new quotes
+        if (status === 'sent') {
+          setShowSendModal(true)
+        }
+      } else {
+        showToast('Quote updated.')
       }
 
-      showToast(status === 'sent' ? 'Quote created!' : 'Saved as draft.')
-      if (status === 'sent') setTimeout(() => router.push('/quotes'), 1200)
+      if (status === 'draft') showToast('Saved as draft.')
     } else { showToast(data.error || 'Error saving.') }
   }
 
@@ -381,6 +389,34 @@ function QuoteFormContent() {
     if (!quoteToken) { showToast('Save first to get a link.'); return }
     navigator.clipboard.writeText(`${window.location.origin}/q/${quoteToken}`)
     showToast('Link copied!')
+  }
+
+  async function sendQuoteNow() {
+    if (!quoteId) return
+    setSendingNow(true)
+    try {
+      const res = await fetch('/api/send-quote', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'authorization': `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ quote_id: quoteId }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        showToast('Quote sent successfully!')
+        setShowSendModal(false)
+        setTimeout(() => router.push('/quotes'), 1200)
+      } else {
+        showToast('Failed to send: ' + (data.error || 'Unknown error'))
+      }
+    } catch (error) {
+      console.error('Send error:', error)
+      showToast('Error sending quote')
+    } finally {
+      setSendingNow(false)
+    }
   }
 
   return (
@@ -709,6 +745,25 @@ function QuoteFormContent() {
           </div>
         </div>
       </div>
+
+      {showSendModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+          <div style={{ background: '#fff', borderRadius: '12px', padding: '32px', width: '360px', boxShadow: '0 20px 25px rgba(0,0,0,0.15)' }}>
+            <h2 style={{ margin: '0 0 12px', fontSize: '18px', fontWeight: 700, color: '#0f172a' }}>Send Quote Now?</h2>
+            <p style={{ margin: '0 0 28px', fontSize: '14px', color: '#64748b', lineHeight: '1.5' }}>
+              Your quote <strong style={{ color: '#0f172a' }}>Q-{String(quoteNumber).padStart(4, '0')}</strong> is ready. Send it to the client now via email?
+            </p>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button onClick={() => setShowSendModal(false)} disabled={sendingNow} style={{ flex: 1, padding: '12px', background: '#f1f5f9', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, color: '#374151' }}>
+                Send Later
+              </button>
+              <button onClick={sendQuoteNow} disabled={sendingNow} style={{ flex: 1, padding: '12px', background: '#ef4444', border: 'none', borderRadius: '8px', color: '#fff', cursor: sendingNow ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: 600, opacity: sendingNow ? 0.7 : 1 }}>
+                {sendingNow ? 'Sending...' : 'Send Now'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {toast && (
         <div style={{ position: 'fixed', bottom: '24px', right: '24px', background: '#0f172a', color: '#fff', padding: '12px 20px', borderRadius: '8px', fontSize: '14px', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', zIndex: 100 }}>
