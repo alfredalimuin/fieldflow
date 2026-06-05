@@ -5,7 +5,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
-const N8N_WEBHOOK_URL = 'http://2.25.138.71:5678/webhook/fieldflow-quote'
+const N8N_WEBHOOK_URL = 'https://n8n.lvjrservicesolutions.com/webhook/fieldflow-quote'
 
 export async function POST(request) {
   try {
