@@ -20,7 +20,7 @@ export async function POST(request) {
 
     // Fetch quote (with retry for new quotes that might not be immediately available)
     let quote, quoteError
-    for (let attempt = 0; attempt < 3; attempt++) {
+    for (let attempt = 0; attempt < 5; attempt++) {
       const res = await supabase
         .from('quotes')
         .select('*')
@@ -30,7 +30,7 @@ export async function POST(request) {
       quoteError = res.error
 
       if (quote) break
-      if (attempt < 2) await new Promise(r => setTimeout(r, 100 * (attempt + 1)))
+      if (attempt < 4) await new Promise(r => setTimeout(r, 200 * (attempt + 1)))
     }
 
     if (quoteError || !quote) {
