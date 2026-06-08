@@ -562,7 +562,7 @@ function QuoteFormContent() {
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <input value={sendToEmail} onChange={e => setSendToEmail(e.target.value)} placeholder="Enter email address" style={{ ...inputStyle, flex: 1 }} />
                       {clientEmails.length > 0 && (
-                        <button onClick={() => { setUseCustomEmail(false); setSendToEmail(clientEmails[0] || ''); }} style={{ padding: '10px 14px', background: '#f1f5f9', border: '1px solid #d1d5db', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', whiteSpace: 'nowrap' }}>
+                        <button onClick={() => setUseCustomEmail(false)} style={{ padding: '10px 14px', background: '#f1f5f9', border: '1px solid #d1d5db', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', whiteSpace: 'nowrap' }}>
                           List
                         </button>
                       )}
