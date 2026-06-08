@@ -546,7 +546,7 @@ function QuoteFormContent() {
               {clientId && (
                 <div style={{ marginBottom: '16px' }}>
                   <label style={labelStyle}>Send To Email</label>
-                  {clientEmails.length > 0 && !useCustomEmail ? (
+                  {clientEmails.length > 0 && clientEmails.includes(sendToEmail) && !useCustomEmail ? (
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <select value={sendToEmail} onChange={e => setSendToEmail(e.target.value)} style={{ ...selectStyle, flex: 1 }}>
                         <option value="">Select an email...</option>
@@ -562,7 +562,7 @@ function QuoteFormContent() {
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <input value={sendToEmail} onChange={e => setSendToEmail(e.target.value)} placeholder="Enter email address" style={{ ...inputStyle, flex: 1 }} />
                       {clientEmails.length > 0 && (
-                        <button onClick={() => setUseCustomEmail(false)} style={{ padding: '10px 14px', background: '#f1f5f9', border: '1px solid #d1d5db', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', whiteSpace: 'nowrap' }}>
+                        <button onClick={() => { if (clientEmails.includes(sendToEmail)) { setUseCustomEmail(false); } }} style={{ padding: '10px 14px', background: '#f1f5f9', border: '1px solid #d1d5db', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', whiteSpace: 'nowrap', opacity: clientEmails.includes(sendToEmail) ? 1 : 0.5 }}>
                           List
                         </button>
                       )}
