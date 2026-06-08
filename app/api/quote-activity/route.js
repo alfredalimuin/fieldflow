@@ -1,19 +1,14 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseMain = createClient(
+const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
-)
-
-const supabaseQuotes = createClient(
-  process.env.NEXT_PUBLIC_QUOTES_SUPABASE_URL,
-  process.env.QUOTES_SUPABASE_SERVICE_ROLE_KEY
 )
 
 async function getCaller(request) {
   const auth = request.headers.get('authorization')
   if (!auth) return null
-  const { data: { user } } = await supabaseMain.auth.getUser(auth.replace('Bearer ', ''))
+  const { data: { user } } = await supabase.auth.getUser(auth.replace('Bearer ', ''))
   return user
 }
 
@@ -26,7 +21,7 @@ export async function GET(request) {
 
   if (!quoteId) return Response.json({ error: 'quote_id required' }, { status: 400 })
 
-  const { data, error } = await supabaseQuotes
+  const { data, error } = await supabase
     .from('quote_activity')
     .select('*')
     .eq('quote_id', quoteId)
@@ -47,7 +42,7 @@ export async function POST(request) {
     return Response.json({ error: 'quote_id and action required' }, { status: 400 })
   }
 
-  const { data, error } = await supabaseQuotes
+  const { data, error } = await supabase
     .from('quote_activity')
     .insert({
       quote_id,
